@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'develop/*'   # Dispara o patch quando fizer push em release/*
       - 'release/*'   # Dispara o patch quando fizer push em release/*
 
 jobs:
