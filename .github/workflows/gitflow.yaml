@@ -9,12 +9,16 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Modo da action'
+        description: 'Choose Action mode'
         required: true
-        default: 'finalize-package'
+        type: choice
+        options:
+          - finalize-package
+          - finalize-release
+        default: finalize-package
       changelog_entry:
-        description: 'Notas para o CHANGELOG.md'
-        required: false
+        description: 'Notes for changelog md'
+        required: true
 
 jobs:
   dev-tag:
