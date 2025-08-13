@@ -1,16 +1,16 @@
 name: "Gitflow Versioning"
-description: "Gerencia versões no estilo Git Flow com incremento automático de tags e atualização do CHANGELOG."
+description: "Gerencia versões no estilo Git Flow com incremento automático de tags, branches e atualização automática do CHANGELOG.md."
 author: "bhcosta90"
 
 inputs:
   mode:
-    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, develop-patch)"
+    description: "Modo de execução (dev, dev-branch, release-branch, release-patch, develop-patch, finalize-package, finalize-release)"
     required: true
   branch:
     description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
     required: false
   changelog_entry:
-    description: "Notas para o CHANGELOG.md (usado no finalize-package)"
+    description: "Notas para o CHANGELOG.md (opcional, usado no finalize-package e finalize-release)"
     required: false
 
 runs:
@@ -21,11 +21,36 @@ runs:
       with:
         fetch-depth: 0
 
+    - name: Setup Ruby (para github-changelog-generator)
+      if: ${{ inputs.mode == 'finalize-package' || inputs.mode == 'finalize-release' }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+
     - name: Executar GitFlow
       shell: bash
       run: |
         set -e
         echo "Modo selecionado: ${{ inputs.mode }}"
+
+        # Função para criar patch em develop/0x
+        function create_develop_patch() {
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
+          latest_tag=$(git tag --list "${series}.*.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_tag" ]]; then
+            new_tag="${series}.0.1"
+          else
+            major=$(echo $latest_tag | cut -d'.' -f1)
+            minor=$(echo $latest_tag | cut -d'.' -f2)
+            patch=$(echo $latest_tag | cut -d'.' -f3)
+            patch=$((patch+1))
+            new_tag="$major.$minor.$patch"
+          fi
+          echo "Criando patch tag na develop: $new_tag"
+          git tag $new_tag
+          git push origin $new_tag
+        }
 
         case "${{ inputs.mode }}" in
 
@@ -40,22 +65,19 @@ runs:
           git push origin $version
           ;;
 
-        dev-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
+        develop-patch)
+          create_develop_patch
           ;;
 
-        release-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
+        release-patch)
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
+          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_tag" ]]; then minor=0; patch=1; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
+          new_tag="$series_number.$minor.$patch"
+          echo "Criando patch tag na release: $new_tag"
+          git tag $new_tag
+          git push origin $new_tag
           ;;
 
         finalize-package)
@@ -69,17 +91,23 @@ runs:
           fi
           echo "Tag final do pacote: $version"
 
-          # Atualizar CHANGELOG.md
-          if [[ -n "${{ inputs.changelog_entry }}" ]]; then
-            echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
-            echo "${{ inputs.changelog_entry }}" >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "docs: atualizar CHANGELOG.md para $version"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
+          # Instalar github-changelog-generator
+          gem install github_changelog_generator
+
+          # Gerar CHANGELOG.md entre última tag e HEAD
+          github_changelog_generator \
+            --since-tag "$latest_release" \
+            --future-release "$version" \
+            --unreleased-only \
+            --output CHANGELOG.md \
+            --no-verbose
+
+          # Commitar o CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: atualizar CHANGELOG.md para $version"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
           git tag $version
           git push origin $version
@@ -103,10 +131,26 @@ runs:
           if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
 
           echo "Criando tag inicial da release: $new_tag"
+
+          # Gerar CHANGELOG.md
+          gem install github_changelog_generator
+          github_changelog_generator \
+            --since-tag "$latest_release" \
+            --future-release "$new_tag" \
+            --unreleased-only \
+            --output CHANGELOG.md \
+            --no-verbose
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: atualizar CHANGELOG.md para $new_tag"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
           git tag $new_tag
           git push origin $new_tag
 
-          # Branch de release
+          # Branch release/0x
           release_branch="release/${branch_major}x"
           git checkout -b $release_branch
           git push origin $release_branch
@@ -121,49 +165,18 @@ runs:
             git push origin $develop_branch
           fi
 
-          # Apagar todas as dev tags
+          # Apagar dev tags
           for tag in $(git tag --list "dev-*"); do
             git push --delete origin "$tag"
             git tag -d "$tag"
           done
 
-          # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
+          # Apagar todas as branches develop/* antigas (exceto a nova)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
             if [[ "$branch" != "$develop_branch" ]]; then
               git push origin --delete "$branch"
             fi
           done
-          ;;
-
-        release-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
-          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="$series_number.$minor.$patch"
-          echo "Criando patch tag na release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
-
-        develop-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
-          # Pegar última tag da série 0.* (qualquer patch)
-          latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then
-          patch=0
-          new_tag="$series.$patch"
-          else
-          patch=$(echo $latest_tag | cut -d'.' -f3)
-          patch=$((patch+1))
-          major=$(echo $latest_tag | cut -d'.' -f1)
-          minor=$(echo $latest_tag | cut -d'.' -f2)
-          new_tag="$major.$minor.$patch"
-          fi
-          echo "Criando patch tag na develop: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
           ;;
 
         *)

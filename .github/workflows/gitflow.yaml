@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Choose Action mode'
+        description: 'Escolha o modo da action'
         required: true
         type: choice
         options:
@@ -17,31 +17,40 @@ on:
           - finalize-release
         default: finalize-package
       changelog_entry:
-        description: 'Notes for changelog md'
-        required: true
+        description: 'Notas para o CHANGELOG.md'
+        required: false
 
 jobs:
   dev-tag:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/gitflow-versioning-action
         with:
           mode: dev
 
   develop-patch:
-    if: contains(github.ref, 'refs/heads/develop/')
+    if: startsWith(github.ref, 'refs/heads/develop/')
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/gitflow-versioning-action
         with:
           mode: develop-patch
 
   release-patch:
-    if: contains(github.ref, 'refs/heads/release/')
+    if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/gitflow-versioning-action
         with:
           mode: release-patch
 
@@ -49,7 +58,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/gitflow-versioning-action
         with:
           mode: ${{ github.event.inputs.mode }}
           changelog_entry: ${{ github.event.inputs.changelog_entry }}
