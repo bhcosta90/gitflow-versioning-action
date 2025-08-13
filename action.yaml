@@ -149,9 +149,18 @@ runs:
         develop-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
           series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
+          # Pegar última tag da série 0.* (qualquer patch)
           latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then patch=0; else patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
+          if [[ -z "$latest_tag" ]]; then
+          patch=0
           new_tag="$series.$patch"
+          else
+          patch=$(echo $latest_tag | cut -d'.' -f3)
+          patch=$((patch+1))
+          major=$(echo $latest_tag | cut -d'.' -f1)
+          minor=$(echo $latest_tag | cut -d'.' -f2)
+          new_tag="$major.$minor.$patch"
+          fi
           echo "Criando patch tag na develop: $new_tag"
           git tag $new_tag
           git push origin $new_tag
