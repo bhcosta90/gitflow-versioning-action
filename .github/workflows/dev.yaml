@@ -9,6 +9,6 @@ jobs:
   dev-tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action-action@main
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: dev
