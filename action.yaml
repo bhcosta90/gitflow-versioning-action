@@ -98,9 +98,13 @@ runs:
           git checkout -b $release_branch
           git push origin $release_branch
 
-          # Apagar todas as dev tags e branches develop/x.*
+          # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
-          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do git push origin --delete "$branch"; done
+
+          # Apagar todas as branches develop/*
+          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
+            git push origin --delete "$branch"
+          done
           ;;
 
         release-patch)
