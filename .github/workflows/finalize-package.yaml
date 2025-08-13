@@ -1,4 +1,4 @@
-name: Finalizar Pacote
+name: Finalize Package
 
 on:
   workflow_dispatch:
