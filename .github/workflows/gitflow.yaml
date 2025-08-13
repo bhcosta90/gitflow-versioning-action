@@ -9,44 +9,19 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Choose Action mode'
-        required: true
-        type: choice
-        options:
-          - finalize-package
-          - finalize-release
-        default: finalize-package
+        description: 'Choose GitFlow mode'
+        required: false
+      changelog_entry:
+        description: 'Optional notes for CHANGELOG.md'
+        required: false
 
 jobs:
-  dev-tag:
-    if: github.ref == 'refs/heads/main'
+  gitflow:
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v4
         with:
-          mode: dev
-
-  develop-patch:
-    if: contains(github.ref, 'refs/heads/develop/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
-        with:
-          mode: develop-patch
-
-  release-patch:
-    if: contains(github.ref, 'refs/heads/release/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
-        with:
-          mode: release-patch
-
-  workflow-dispatch:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
+          fetch-depth: 0
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: ${{ github.event.inputs.mode }}
-          changelog_entry: ${{ github.event.inputs.changelog_entry }}
