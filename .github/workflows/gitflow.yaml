@@ -1,199 +1,67 @@
-name: "Gitflow Versioning"
-description: "Gerencia versões no estilo Git Flow com incremento automático de tags, branches e atualização do CHANGELOG.md."
-author: "bhcosta90"
+name: Git Flow Automation
 
-inputs:
-  mode:
-    description: "Modo de execução (dev, develop-patch, release-patch, finalize-package, finalize-release)"
-    required: true
-  branch:
-    description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
-    required: false
-  changelog_entry:
-    description: "Notas para o CHANGELOG.md (opcional, usado no finalize-package e finalize-release)"
-    required: false
+on:
+  push:
+    branches:
+      - main
+      - 'develop/*'
+      - 'release/*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Escolha o modo da action'
+        required: true
+        type: choice
+        options:
+          - finalize-package
+          - finalize-release
+        default: finalize-package
+      changelog_entry:
+        description: 'Notas para o CHANGELOG.md'
+        required: false
 
-runs:
-  using: "composite"
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+jobs:
+  dev-tag:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: dev
 
-    - name: Setup Ruby (para github-changelog-generator)
-      if: ${{ inputs.mode == 'finalize-package' || inputs.mode == 'finalize-release' }}
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.2'
+  develop-patch:
+    if: startsWith(github.ref, 'refs/heads/develop/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: develop-patch
 
-    - name: Executar GitFlow
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        set -e
-        echo "Modo selecionado: ${{ inputs.mode }}"
+  release-patch:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: release-patch
 
-        USER="${GITHUB_REPOSITORY_OWNER}"
-        PROJECT="$(basename $GITHUB_REPOSITORY)"
-
-        function create_develop_patch() {
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
-          latest_tag=$(git tag --list "${series}.*.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then
-            new_tag="${series}.0.1"
-          else
-            major=$(echo $latest_tag | cut -d'.' -f1)
-            minor=$(echo $latest_tag | cut -d'.' -f2)
-            patch=$(echo $latest_tag | cut -d'.' -f3)
-            patch=$((patch+1))
-            new_tag="$major.$minor.$patch"
-          fi
-          echo "Criando patch tag na develop: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-        }
-
-        case "${{ inputs.mode }}" in
-
-        dev)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
-          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_dev" ]]; then patch=0; else patch=${latest_dev##*.}; patch=$((patch+1)); fi
-          version="dev-$major.$minor.$patch"
-          echo "Próxima dev tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-
-        develop-patch)
-          create_develop_patch
-          ;;
-
-        release-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
-          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then minor=0; patch=1; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="$series_number.$minor.$patch"
-          echo "Criando patch tag na release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
-
-        finalize-package)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            version="0.0.0"
-          else
-            major=$(echo $latest_release | cut -d'.' -f1)
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-            version="$major.$minor.0"
-          fi
-          echo "Tag final do pacote: $version"
-
-          # Instalar github-changelog-generator
-          gem install github_changelog_generator
-
-          # Gerar CHANGELOG.md
-          github_changelog_generator \
-            --user "$USER" \
-            --project "$PROJECT" \
-            --token "$GITHUB_TOKEN" \
-            --since-tag "$latest_release" \
-            --future-release "$version" \
-            --unreleased-only \
-            --output CHANGELOG.md \
-            --no-verbose
-
-          # Commitar CHANGELOG.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs: atualizar CHANGELOG.md para $version"
-          git push origin HEAD:${GITHUB_REF_NAME}
-
-          # Criar tag e branch develop/0x
-          git tag $version
-          git push origin $version
-
-          major=$(echo $version | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
-          else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
-          fi
-
-          # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do
-            git push --delete origin "$tag"
-            git tag -d "$tag"
-          done
-          ;;
-
-        finalize-release)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
-
-          echo "Criando tag inicial da release: $new_tag"
-
-          # Gerar CHANGELOG.md
-          gem install github_changelog_generator
-          github_changelog_generator \
-            --user "$USER" \
-            --project "$PROJECT" \
-            --token "$GITHUB_TOKEN" \
-            --since-tag "$latest_release" \
-            --future-release "$new_tag" \
-            --unreleased-only \
-            --output CHANGELOG.md \
-            --no-verbose
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs: atualizar CHANGELOG.md para $new_tag"
-          git push origin HEAD:${GITHUB_REF_NAME}
-
-          git tag $new_tag
-          git push origin $new_tag
-
-          # Branch release/0x
-          release_branch="release/${branch_major}x"
-          git checkout -b $release_branch
-          git push origin $release_branch
-
-          # Branch develop/0x correspondente
-          major=$(echo $new_tag | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
-          else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
-          fi
-
-          # Apagar dev tags
-          for tag in $(git tag --list "dev-*"); do
-            git push --delete origin "$tag"
-            git tag -d "$tag"
-          done
-
-          # Apagar todas as branches develop/* antigas (exceto a nova)
-          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-            if [[ "$branch" != "$develop_branch" ]]; then
-              git push origin --delete "$branch"
-            fi
-          done
-          ;;
-
-        *)
-          echo "Modo inválido: ${{ inputs.mode }}"
-          exit 1
-          ;;
-        esac
+  workflow-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: ${{ github.event.inputs.mode }}
+          changelog_entry: ${{ github.event.inputs.changelog_entry }}
