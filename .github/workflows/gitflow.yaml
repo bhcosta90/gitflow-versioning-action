@@ -9,63 +9,44 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Escolha o modo da action'
+        description: 'Choose Action mode'
         required: true
         type: choice
         options:
           - finalize-package
           - finalize-release
         default: finalize-package
-      changelog_entry:
-        description: 'Notas para o CHANGELOG.md'
-        required: false
 
 jobs:
   dev-tag:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: dev
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   develop-patch:
-    if: startsWith(github.ref, 'refs/heads/develop/')
+    if: contains(github.ref, 'refs/heads/develop/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: develop-patch
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   release-patch:
-    if: startsWith(github.ref, 'refs/heads/release/')
+    if: contains(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: release-patch
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   workflow-dispatch:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: ${{ github.event.inputs.mode }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           changelog_entry: ${{ github.event.inputs.changelog_entry }}
