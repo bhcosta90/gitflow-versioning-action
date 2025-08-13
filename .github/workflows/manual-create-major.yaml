@@ -24,7 +24,7 @@ jobs:
       - name: Bump major version
         run: |
           IFS='.' read -r -a VERSION <<< "$LATEST_TAG"
-          branch_release="${VERSION[0]}.${VERSION[1]}.0"
+          branch_release="${VERSION[0]}.x"
           version=${VERSION[0]}
           
           for tag in $(git tag -l "${version}.*.*-*"); do

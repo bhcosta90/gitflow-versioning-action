@@ -45,8 +45,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          git checkout -b "release/${{ env.BRANCH_RELEASE }}"
-          git push origin "release/${{ env.BRANCH_RELEASE }}"
-
           git tag "${{ env.NEW_MINOR_TAG }}-0"
           git push origin "${{ env.NEW_MINOR_TAG }}-0"
