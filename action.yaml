@@ -30,16 +30,27 @@ runs:
         case "${{ inputs.mode }}" in
 
         dev)
-          latest=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then
-            version="dev-0.0.0"
+          # Pegar última release final
+          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_release" ]]; then
+            major=0
+            minor=0
           else
-            base=${latest#dev-}
-            IFS='.' read -r major minor patch <<< "$base"
-            patch=$((patch+1))
-            version="dev-$major.$minor.$patch"
+            major=$(echo $latest_release | cut -d'.' -f1)
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
           fi
-          echo "Criando tag: $version"
+
+          # Pegar última dev tag da nova série
+          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_dev" ]]; then
+            patch=0
+          else
+            patch=${latest_dev##*.}
+            patch=$((patch+1))
+          fi
+
+          version="dev-$major.$minor.$patch"
+          echo "Próxima dev tag: $version"
           git tag $version
           git push origin $version
           ;;
@@ -75,7 +86,7 @@ runs:
           ;;
 
         finalize-package)
-          # Pegar última release (não dev)
+          # Pegar última release final
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
             version="0.0.0"
