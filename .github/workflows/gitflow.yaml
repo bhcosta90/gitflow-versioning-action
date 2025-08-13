@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: ./.github/actions/gitflow-versioning-action
         with:
           mode: ${{ github.event.inputs.mode }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          changelog_entry: ${{ github.event.inputs.changelog_entry }}

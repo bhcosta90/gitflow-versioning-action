@@ -1,16 +1,10 @@
 name: "Gitflow Versioning"
-description: "Gerencia versões no estilo Git Flow com incremento automático de tags e atualização do CHANGELOG."
+description: "Automates GitFlow: dev tags, release tags, patch increments, and CHANGELOG.md generation."
 author: "bhcosta90"
 
 inputs:
   mode:
-    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, develop-patch)"
-    required: true
-  branch:
-    description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
-    required: false
-  changelog_entry:
-    description: "Notas para o CHANGELOG.md (usado no finalize-package)"
+    description: "Execution mode (dev, develop-patch, release-patch, finalize-package, finalize-release)"
     required: false
 
 runs:
@@ -21,154 +15,81 @@ runs:
       with:
         fetch-depth: 0
 
-    - name: Executar GitFlow
+    - name: Setup Ruby (for changelog)
+      if: ${{ inputs.mode == 'finalize-package' || inputs.mode == 'finalize-release' }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+
+    - name: Run GitFlow Logic
       shell: bash
       run: |
         set -e
-        echo "Modo selecionado: ${{ inputs.mode }}"
+        MODE="${{ inputs.mode }}"
+        REF="${GITHUB_REF#refs/heads/}"
+        USER="${GITHUB_REPOSITORY_OWNER}"
+        PROJECT="$(basename $GITHUB_REPOSITORY)"
 
-        case "${{ inputs.mode }}" in
+        # Auto-detect mode if not set
+        if [[ -z "$MODE" ]]; then
+          if [[ "$REF" == "main" ]]; then MODE="dev"; fi
+          if [[ "$REF" == develop/* ]]; then MODE="develop-patch"; fi
+          if [[ "$REF" == release/* ]]; then MODE="release-patch"; fi
+        fi
 
-        dev)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
-          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_dev" ]]; then patch=0; else patch=${latest_dev##*.}; patch=$((patch+1)); fi
-          version="dev-$major.$minor.$patch"
-          echo "Próxima dev tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
+        echo "Mode: $MODE, Branch: $REF"
 
-        dev-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-
-        release-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-
-        finalize-package)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            version="0.0.0"
-          else
-            major=$(echo $latest_release | cut -d'.' -f1)
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-            version="$major.$minor.0"
-          fi
-          echo "Tag final do pacote: $version"
-
-          # Atualizar CHANGELOG.md
-          if [[ -n "${{ inputs.changelog_entry }}" ]]; then
-            echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
-            echo "${{ inputs.changelog_entry }}" >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "docs: atualizar CHANGELOG.md para $version"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
-
-          git tag $version
-          git push origin $version
-
-          # Branch develop/0x correspondente à release
-          major=$(echo $version | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
-          else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
-          fi
-
-          # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
-          ;;
-
-        finalize-release)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
-
-          echo "Criando tag inicial da release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-
-          # Branch de release
-          release_branch="release/${branch_major}x"
-          git checkout -b $release_branch
-          git push origin $release_branch
-
-          # Branch develop/0x correspondente à release
-          major=$(echo $new_tag | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
-          else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
-          fi
-
-          # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
-          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-            if [[ "$branch" != "$develop_branch" ]]; then
-              git push origin --delete "$branch"
-            fi
-          done
-
-          # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do
-            git push --delete origin "$tag"
-            git tag -d "$tag"
-          done
-
-          ;;
-
-        release-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
-          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="$series_number.$minor.$patch"
-          echo "Criando patch tag na release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
-
-        develop-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
-          # Pegar última tag da série 0.* (qualquer patch)
-          latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then
-          patch=0
-          new_tag="$series.$patch"
-          else
-          patch=$(echo $latest_tag | cut -d'.' -f3)
+        function create_tag() {
+          local prefix=$1
+          latest=$(git tag --list "${prefix}*" --sort=-v:refname | head -n1)
+          if [[ -z "$latest" ]]; then echo "${prefix}0.0.0"; return; fi
+          IFS='.' read -r major minor patch <<<"${latest#*-}"
           patch=$((patch+1))
-          major=$(echo $latest_tag | cut -d'.' -f1)
-          minor=$(echo $latest_tag | cut -d'.' -f2)
-          new_tag="$major.$minor.$patch"
-          fi
-          echo "Criando patch tag na develop: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
+          echo "${prefix}${major}.${minor}.${patch}"
+        }
 
-        *)
-          echo "Modo inválido: ${{ inputs.mode }}"
-          exit 1
-          ;;
+        case "$MODE" in
+          dev)
+            new_tag=$(create_tag "dev-")
+            git tag "$new_tag"
+            git push origin "$new_tag"
+            ;;
+          develop-patch|release-patch)
+            latest_tag=$(git tag --sort=-v:refname | head -n1)
+            IFS='.' read -r major minor patch <<<"$latest_tag"
+            patch=$((patch+1))
+            new_tag="$major.$minor.$patch"
+            git tag "$new_tag"
+            git push origin "$new_tag"
+            ;;
+          finalize-package)
+            new_tag="0.0.0"
+            git tag "$new_tag"
+            git push origin "$new_tag"
+            develop_branch="develop/0x"
+            git checkout -B "$develop_branch"
+            git push -u origin "$develop_branch"
+            git tag -l "dev-*" | xargs -r git tag -d
+            git push origin --delete $(git tag -l "dev-*") || true
+            ;;
+          finalize-release)
+            latest_tag=$(git tag --sort=-v:refname | head -n1)
+            major=$(( ${latest_tag%%.*} + 1 ))
+            new_tag="$major.0.0"
+            git tag "$new_tag"
+            git push origin "$new_tag"
+            release_branch="release/0x"
+            git checkout -B "$release_branch"
+            git push -u origin "$release_branch"
+            develop_branch="develop/0x"
+            git checkout -B "$develop_branch"
+            git push -u origin "$develop_branch"
+            git tag -l "dev-*" | xargs -r git tag -d
+            git push origin --delete $(git tag -l "dev-*") || true
+            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r -n1 git push origin --delete
+            ;;
+          *)
+            echo "Invalid mode: $MODE"
+            exit 1
+            ;;
         esac
