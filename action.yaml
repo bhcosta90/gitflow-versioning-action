@@ -6,6 +6,9 @@ inputs:
   mode:
     description: "Modo de execução (dev, develop-patch, release-patch, finalize-package, finalize-release)"
     required: true
+  github_token:
+    description: "Token do GitHub (passar ${{ secrets.GITHUB_TOKEN }})"
+    required: true
   branch:
     description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
     required: false
@@ -30,7 +33,7 @@ runs:
     - name: Executar GitFlow
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       run: |
         set -e
         echo "Modo selecionado: ${{ inputs.mode }}"
@@ -95,10 +98,8 @@ runs:
           fi
           echo "Tag final do pacote: $version"
 
-          # Instalar github-changelog-generator
           gem install github_changelog_generator
 
-          # Gerar CHANGELOG.md
           github_changelog_generator \
             --user "$USER" \
             --project "$PROJECT" \
@@ -109,14 +110,12 @@ runs:
             --output CHANGELOG.md \
             --no-verbose
 
-          # Commitar CHANGELOG.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git commit -m "docs: atualizar CHANGELOG.md para $version"
           git push origin HEAD:${GITHUB_REF_NAME}
 
-          # Criar tag e branch develop/0x
           git tag $version
           git push origin $version
 
@@ -129,7 +128,6 @@ runs:
             git push origin $develop_branch
           fi
 
-          # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do
             git push --delete origin "$tag"
             git tag -d "$tag"
@@ -142,7 +140,6 @@ runs:
 
           echo "Criando tag inicial da release: $new_tag"
 
-          # Gerar CHANGELOG.md
           gem install github_changelog_generator
           github_changelog_generator \
             --user "$USER" \
@@ -163,12 +160,10 @@ runs:
           git tag $new_tag
           git push origin $new_tag
 
-          # Branch release/0x
           release_branch="release/${branch_major}x"
           git checkout -b $release_branch
           git push origin $release_branch
 
-          # Branch develop/0x correspondente
           major=$(echo $new_tag | cut -d'.' -f1)
           develop_branch="develop/${major}x"
           if git ls-remote --exit-code --heads origin $develop_branch; then
@@ -178,13 +173,11 @@ runs:
             git push origin $develop_branch
           fi
 
-          # Apagar dev tags
           for tag in $(git tag --list "dev-*"); do
             git push --delete origin "$tag"
             git tag -d "$tag"
           done
 
-          # Apagar todas as branches develop/* antigas (exceto a nova)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
             if [[ "$branch" != "$develop_branch" ]]; then
               git push origin --delete "$branch"
