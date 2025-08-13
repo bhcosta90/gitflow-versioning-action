@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/gitflow-versioning-action
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: dev
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/gitflow-versioning-action
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: develop-patch
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/gitflow-versioning-action
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: release-patch
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/gitflow-versioning-action
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: ${{ github.event.inputs.mode }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
