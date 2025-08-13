@@ -26,9 +26,26 @@ jobs:
           mode: dev
 
   develop-patch:
-    if: startsWith(github.ref, 'refs/heads/develop/')
+    if: contains(github.ref, 'refs/heads/develop/')
     runs-on: ubuntu-latest
     steps:
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
-          mode: de
+          mode: develop-patch
+
+  release-patch:
+    if: contains(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: release-patch
+
+  workflow-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: ${{ github.event.inputs.mode }}
+          changelog_entry: ${{ github.event.inputs.changelog_entry }}
