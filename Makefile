@@ -10,8 +10,8 @@ delete-tag:
 		echo "Error: You must specify the version as MAJOR.MINOR."; \
 		exit 1; \
 	fi
-	@echo "Removing tags matching '$(version).0-*'..."
-	@for tag in $(shell git tag -l "$(version).0-*"); do \
+	@echo "Removing tags matching '$(version)*'..."
+	@for tag in $(shell git tag -l "$(version)*"); do \
 		git tag -d $$tag && git push origin --delete $$tag; \
 	done
 	@echo "All '$(version).*' tags have been removed."
