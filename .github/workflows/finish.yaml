@@ -7,6 +7,6 @@ jobs:
   finalize-package:
     runs-on: ubuntu-latest
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@v1
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: finalize-package
