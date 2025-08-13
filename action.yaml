@@ -112,7 +112,7 @@ runs:
           series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
           latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="$series_number.$minor.$patch"
+          new_tag="dev-$series_number.$minor.$patch"
           echo "Criando patch tag na release: $new_tag"
           git tag $new_tag
           git push origin $new_tag
