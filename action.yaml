@@ -128,22 +128,23 @@ runs:
         finalize-release)
           # Pegar última release final
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+
           if [[ -z "$latest_release" ]]; then
-            major=1
-            minor=0
+            branch_major=0
+            new_tag="1.0.0"
           else
-            major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
-            minor=0
+            branch_major=$(echo $latest_release | cut -d'.' -f1)
+            new_major=$((branch_major + 1))
+            new_tag="$new_major.0.0"
           fi
 
           # Criar tag inicial da nova release
-          new_tag="$major.$minor.0"
           echo "Criando tag inicial da release: $new_tag"
           git tag $new_tag
           git push origin $new_tag
 
-          # Criar branch release/0x (x = minor da tag)
-          release_branch="release/$major$x"
+          # Criar branch release/0x (usar major da última release)
+          release_branch="release/${branch_major}x"
           git checkout -b $release_branch
           git push origin $release_branch
 
