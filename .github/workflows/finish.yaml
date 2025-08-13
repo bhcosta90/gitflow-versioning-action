@@ -1,0 +1,12 @@
+name: Finalizar Pacote
+
+on:
+  workflow_dispatch:
+
+jobs:
+  finalize-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@v1
+        with:
+          mode: finalize-package

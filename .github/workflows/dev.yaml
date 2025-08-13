@@ -1,0 +1,14 @@
+name: Git Flow Automation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  dev-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@v1
+        with:
+          mode: dev
