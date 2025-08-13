@@ -94,12 +94,22 @@ runs:
           git tag $new_tag
           git push origin $new_tag
 
+          # Branch de release
           release_branch="release/${branch_major}x"
           git checkout -b $release_branch
           git push origin $release_branch
 
+          # Branch develop correspondente à release
+          major_minor=$(echo $new_tag | cut -d'.' -f1,2)
+          develop_branch="develop/$major_minor"
+          git checkout -b $develop_branch
+          git push origin $develop_branch
+
           # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
+          for tag in $(git tag --list "dev-*"); do
+            git push --delete origin "$tag"
+            git tag -d "$tag"
+          done
 
           # Apagar todas as branches develop/*
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
@@ -112,7 +122,7 @@ runs:
           series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
           latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="dev-$series_number.$minor.$patch"
+          new_tag="$series_number.$minor.$patch"
           echo "Criando patch tag na release: $new_tag"
           git tag $new_tag
           git push origin $new_tag
