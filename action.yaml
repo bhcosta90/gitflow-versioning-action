@@ -118,12 +118,20 @@ runs:
           ;;
 
         finalize-release)
-          # Placeholder para futura implementação de finalize-release
-          echo "Finalize-release ainda não implementado."
-          ;;
-
-        *)
-          echo "Modo inválido: ${{ inputs.mode }}"
-          exit 1
-          ;;
+            latest=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+            if [[ -z "$latest" ]]; then
+              echo "Nenhuma tag final encontrada."
+              exit 1
+            fi
+            major_minor=$(echo $latest | cut -d'.' -f1,2)
+            git checkout -b release/$major_minor
+            git push origin release/$major_minor
+            for tag in $(git tag --list "dev-*"); do
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            done
+            for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
+              git push origin --delete "$branch"
+            done
+            ;;
         esac
