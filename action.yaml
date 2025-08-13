@@ -11,7 +11,7 @@ inputs:
     required: false
   changelog_entry:
     description: "Notas para o CHANGELOG.md (usado no finalize-package)"
-    required: false
+    required: true
 
 runs:
   using: "composite"
