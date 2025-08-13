@@ -1,0 +1,52 @@
+name: Create Major Tag After Build
+
+on:
+  #  workflow_run:
+  #    workflows: ["Create Build Tag on Merge to Main"]
+  #    types:
+  #      - completed
+  workflow_dispatch
+
+jobs:
+  create_major_version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get latest stable version
+        run: |
+          git fetch --tags
+          latest=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?$' | head -n 1)
+          IFS='-' read -r -a TAG_STABLE <<< "$latest"
+          IFS='.' read -r -a VERSION <<< "${TAG_STABLE[0]}"
+          echo "LATEST_TAG=${VERSION[0]}.${VERSION[1]}.${VERSION[2]}" >> $GITHUB_ENV
+
+      - name: Bump major version
+        run: |
+          IFS='.' read -r -a VERSION <<< "$LATEST_TAG"
+          branch_release="${VERSION[0]}.${VERSION[1]}.0"
+          version=${VERSION[0]}
+          
+          for tag in $(git tag -l "${version}.*.*-*"); do
+            git push origin --delete "$tag"
+          done
+          
+          git tag "${version}.${VERSION[1]}.0"
+          git push origin "${version}.${VERSION[1]}.0"
+
+          VERSION[0]=$((VERSION[0] + 1))
+          echo "${VERSION[0]}.0.0"
+          new_tag="${VERSION[0]}.0.0"
+          echo "NEW_MAJOR_TAG=$new_tag" >> $GITHUB_ENV
+          echo "BRANCH_RELEASE=$branch_release" >> $GITHUB_ENV
+
+      - name: Create release branch and push new major tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git tag "${{ env.NEW_MAJOR_TAG }}-0"
+          git push origin "${{ env.NEW_MAJOR_TAG }}-0"
+
+          git checkout -b "release/${{ env.BRANCH_RELEASE }}"
+          git push origin "release/${{ env.BRANCH_RELEASE }}"
