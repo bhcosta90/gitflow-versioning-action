@@ -60,7 +60,13 @@ runs:
 
         finalize-package)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then version="0.0.0"; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); version="$major.$minor.0"; fi
+          if [[ -z "$latest_release" ]]; then
+            version="0.0.0"
+          else
+            major=$(echo $latest_release | cut -d'.' -f1)
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
+            version="$major.$minor.0"
+          fi
           echo "Tag final do pacote: $version"
 
           # Atualizar CHANGELOG.md
@@ -78,9 +84,15 @@ runs:
           git tag $version
           git push origin $version
 
-          major_minor=$(echo $version | cut -d'.' -f1,2)
-          git checkout -b develop/$major_minor
-          git push origin develop/$major_minor
+          # Branch develop/0x correspondente à release
+          major=$(echo $version | cut -d'.' -f1)
+          develop_branch="develop/${major}x"
+          if git ls-remote --exit-code --heads origin $develop_branch; then
+            echo "Branch $develop_branch já existe"
+          else
+            git checkout -b $develop_branch
+            git push origin $develop_branch
+          fi
 
           # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
@@ -99,11 +111,15 @@ runs:
           git checkout -b $release_branch
           git push origin $release_branch
 
-          # Branch develop correspondente à release
-          major_minor=$(echo $new_tag | cut -d'.' -f1,2)
-          develop_branch="develop/$major_minor"
-          git checkout -b $develop_branch
-          git push origin $develop_branch
+          # Branch develop/0x correspondente à release
+          major=$(echo $new_tag | cut -d'.' -f1)
+          develop_branch="develop/${major}x"
+          if git ls-remote --exit-code --heads origin $develop_branch; then
+            echo "Branch $develop_branch já existe"
+          else
+            git checkout -b $develop_branch
+            git push origin $develop_branch
+          fi
 
           # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do
@@ -111,9 +127,11 @@ runs:
             git tag -d "$tag"
           done
 
-          # Apagar todas as branches develop/*
+          # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-            git push origin --delete "$branch"
+            if [[ "$branch" != "$develop_branch" ]]; then
+              git push origin --delete "$branch"
+            fi
           done
           ;;
 
@@ -130,7 +148,7 @@ runs:
 
         develop-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+\.[0-9]+)/\1/')
+          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
           latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then patch=0; else patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
           new_tag="$series.$patch"
