@@ -11,7 +11,7 @@ inputs:
     required: false
   changelog_entry:
     description: "Notas para o CHANGELOG.md (usado no finalize-package)"
-    required: true
+    required: false
 
 runs:
   using: "composite"
@@ -25,13 +25,11 @@ runs:
       shell: bash
       run: |
         set -e
-
         echo "Modo selecionado: ${{ inputs.mode }}"
 
         case "${{ inputs.mode }}" in
 
         dev)
-          # Incrementa dev-x.y.z na branch develop
           latest=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest" ]]; then
             version="dev-0.0.0"
@@ -47,7 +45,6 @@ runs:
           ;;
 
         dev-branch)
-          # Incremento patch em develop/x.y
           base="${{ inputs.branch }}"
           latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest" ]]; then
@@ -63,7 +60,6 @@ runs:
           ;;
 
         release-branch)
-          # Incremento patch em release/x.y
           base="${{ inputs.branch }}"
           latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest" ]]; then
@@ -79,17 +75,18 @@ runs:
           ;;
 
         finalize-package)
-          # Pega última dev tag
-          latest=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then
-            echo "Nenhuma dev tag encontrada."
-            exit 1
+          # Pegar última release (não dev)
+          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_release" ]]; then
+            version="0.0.0"
+          else
+            major=$(echo $latest_release | cut -d'.' -f1)
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
+            version="$major.$minor.0"
           fi
+          echo "Tag final do pacote: $version"
 
-          version=${latest#dev-}
-          echo "Tag final: $version"
-
-          # Atualizar CHANGELOG.md se input fornecido
+          # Atualizar CHANGELOG.md
           if [[ -n "${{ inputs.changelog_entry }}" ]]; then
             echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
             echo "${{ inputs.changelog_entry }}" >> CHANGELOG.md
@@ -110,7 +107,7 @@ runs:
           git checkout -b develop/$major_minor
           git push origin develop/$major_minor
 
-          # Apagar dev tags
+          # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do
             git push --delete origin "$tag"
             git tag -d "$tag"
@@ -118,20 +115,34 @@ runs:
           ;;
 
         finalize-release)
-            latest=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-            if [[ -z "$latest" ]]; then
-              echo "Nenhuma tag final encontrada."
-              exit 1
-            fi
-            major_minor=$(echo $latest | cut -d'.' -f1,2)
-            git checkout -b release/$major_minor
-            git push origin release/$major_minor
-            for tag in $(git tag --list "dev-*"); do
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            done
-            for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-              git push origin --delete "$branch"
-            done
-            ;;
+          # Encontrar última tag final
+          latest=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest" ]]; then
+            echo "Nenhuma tag final encontrada."
+            exit 1
+          fi
+
+          major_minor=$(echo $latest | cut -d'.' -f1,2)
+          release_branch="release/$major_minor"
+          echo "Criando branch release: $release_branch"
+
+          git checkout -b $release_branch
+          git push origin $release_branch
+
+          # Apagar todas as dev tags
+          for tag in $(git tag --list "dev-*"); do
+            git push --delete origin "$tag"
+            git tag -d "$tag"
+          done
+
+          # Apagar todas as branches develop/x.*
+          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
+            git push origin --delete "$branch"
+          done
+          ;;
+
+        *)
+          echo "Modo inválido: ${{ inputs.mode }}"
+          exit 1
+          ;;
         esac
