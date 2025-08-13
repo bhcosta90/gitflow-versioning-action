@@ -4,11 +4,21 @@ on:
   push:
     branches:
       - main
+      - 'release/*'   # Dispara o patch quando fizer push em release/*
 
 jobs:
   dev-tag:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: dev
+
+  release-patch:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: release-patch
