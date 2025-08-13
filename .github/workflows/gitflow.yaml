@@ -1,0 +1,30 @@
+name: Git Flow Automation
+
+on:
+  push:
+    branches:
+      - main
+      - 'develop/*'
+      - 'release/*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modo da action'
+        required: true
+        default: 'finalize-package'  # ou finalize-release
+      changelog_entry:
+        description: 'Notas para o CHANGELOG.md'
+        required: false
+
+jobs:
+  gitflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || (
+            github.ref == 'refs/heads/main' && 'dev' ||
+            startsWith(github.ref, 'refs/heads/release/') && 'release-patch' ||
+            startsWith(github.ref, 'refs/heads/develop/') && 'develop-patch'
+          ) }}
+          changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
