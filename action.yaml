@@ -58,7 +58,7 @@ runs:
           echo "Próxima dev tag: $version"
           git tag $version
           git push origin $version
-          develop_branch="develop/0x"
+          develop_branch="release/0x"
           if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
               git checkout -b "$develop_branch"
               git push -u origin "$develop_branch"
