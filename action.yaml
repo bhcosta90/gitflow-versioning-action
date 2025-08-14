@@ -110,7 +110,13 @@ runs:
               git push origin $develop_branch
           fi
           # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
+          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
+          done
         ;;
 
         finalize-release)
@@ -141,7 +147,13 @@ runs:
             fi
           done
           # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
+          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
+          done
         ;;
 
         release-patch)
