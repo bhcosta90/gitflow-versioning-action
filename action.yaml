@@ -100,7 +100,7 @@ runs:
             fi
           done
 
-          echo "Tag final do pacote: $version"
+          echo "Final Package Tag: $version"
         ;;
 
         finalize-release)
@@ -120,6 +120,15 @@ runs:
           latest_dev=$(git tag --list "dev-$major_actual.*" --sort=-v:refname | head -n 1)
           echo "Tag dev: $latest_dev" 
           echo "Tag final da release: $version"
+
+          for tag in $(git tag --list "dev-$major.*"); do
+            if [[ "$tag" != "$latest_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
+          done
+
+          echo "Final Package Tag: $version"
         ;;
 
         release-patch)
