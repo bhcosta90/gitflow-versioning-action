@@ -152,16 +152,14 @@ runs:
           done
 
           # Apagar todas dev tags, mantendo última do mesmo major.minor
-          for minor in $(git tag --list "dev-$prev_major.*.*" | cut -d. -f2 | sort -u); do
-          last_dev=$(git tag --list "dev-$prev_major.$minor.*" --sort=-v:refname | head -n 1)
-          mapfile -t dev_tags < <(git tag --list "dev-$prev_major.$minor.*")
-          for tag in "${dev_tags[@]}"; do
-          if [[ "$tag" != "$last_dev" ]]; then
-          echo "Deletando tag $tag"
-          git push --delete origin "$tag"
-          git tag -d "$tag"
-          fi
-          done
+          major=$(echo $new_tag | cut -d'.' -f1)
+          minor=$(echo $new_tag | cut -d'.' -f2)
+          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$major.$minor.*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
           done
         ;;
 
