@@ -95,6 +95,35 @@ Below is a summary of each mode's behavior.
 Note: Some behavior depends on the tag history and the current checkout branch.
 
 ## Usage examples (workflows)
+Quick start: minimal workflow integrating this Action (mirrors .github/workflows/gitflow.yaml)
+
+```yaml
+name: Git Flow Automation
+on:
+  push:
+    branches: [main, master, 'hotfix/*', 'release/*']
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Choose Action mode'
+        required: true
+        type: choice
+        options: [finalize-package, finalize-release]
+        default: finalize-package
+
+jobs:
+  gitflow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Run Gitflow Versioning
+        uses: bhcosta90/gitflow-versioning-action@v1
+        with:
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
+          changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
+```
+
 Below is a workflow that covers common scenarios:
 
 name: Git Flow Automation
@@ -126,7 +155,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: dev
 
@@ -136,7 +165,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: develop-patch
 
@@ -146,7 +175,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: release-patch
 
@@ -156,7 +185,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: ${{ github.event.inputs.mode }}
           changelog_entry: ${{ github.event.inputs.changelog_entry }}
@@ -170,7 +199,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: dev-branch
           branch: feature/login
@@ -183,7 +212,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: release-branch
           branch: release/1x
@@ -196,7 +225,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: finalize-package
           changelog_entry: |
