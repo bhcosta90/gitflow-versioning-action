@@ -78,7 +78,7 @@ runs:
         
         finalize-package)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          last_dev=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
+          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
             major=0
             minor=0
@@ -94,7 +94,7 @@ runs:
           git push origin $version
   
           for tag in $(git tag --list "dev-$major.*"); do
-            if [[ "$tag" != "$last_dev" ]]; then
+            if [[ "$tag" != "$latest_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
             fi
