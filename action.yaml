@@ -111,8 +111,14 @@ runs:
               git push origin $develop_branch
           fi
 
-          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-*"); do
+          if latest_release; then
+            branch_major=$(echo $latest_release | cut -d'.' -f1)
+          else
+            branch_major=0
+          fi
+        
+          last_dev=$(git tag --list "dev-$branch_major.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$branch_major.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
