@@ -109,6 +109,8 @@ runs:
               git checkout -b $develop_branch
               git push origin $develop_branch
           fi
+          # Apagar todas as dev tags
+          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
         ;;
 
         finalize-release)
@@ -138,6 +140,8 @@ runs:
               git push origin --delete "$branch"
             fi
           done
+          # Apagar todas as dev tags
+          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
         ;;
 
         release-patch)
