@@ -25,11 +25,31 @@ runs:
       shell: bash
       run: |
         set -e
-        echo "Modo selecionado: ${{ inputs.mode }}"
+        MODE="${{ inputs.mode }}"
+        BRANCH="${{ inputs.branch }}"
+        CHANGELOG_ENTRY="${{ inputs.changelog_entry }}"
 
-        case "${{ inputs.mode }}" in
+        echo "Modo selecionado: $MODE"
+
+        # Detectar último commit para pular dev tags se for finalize
+        last_commit_msg=$(git log -1 --pretty=%B | tr -d '\n')
+        last_commit_author=$(git log -1 --pretty=%an)
+        SKIP_DEV=false
+        if [[ "$MODE" == "dev" ]]; then
+            if [[ "$last_commit_msg" =~ (finalize-package|finalize-release) ]] || [[ "$last_commit_author" == "github-actions[bot]" ]]; then
+                echo "Último commit foi finalize, pulando criação de dev tag"
+                SKIP_DEV=true
+            fi
+        fi
+
+        case "$MODE" in
 
         dev)
+          if [ "$SKIP_DEV" = true ]; then
+              echo "Criação de dev tag pulada."
+              exit 0
+          fi
+
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
           latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
@@ -40,24 +60,22 @@ runs:
           git push origin $version
           develop_branch="develop/0x"
           if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
-          git checkout -b "$develop_branch"
-          git push -u origin "$develop_branch"
+              git checkout -b "$develop_branch"
+              git push -u origin "$develop_branch"
           fi
           ;;
 
         dev-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
+          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
           echo "Criando tag: $version"
           git tag $version
           git push origin $version
           ;;
 
         release-branch)
-          base="${{ inputs.branch }}"
-          latest=$(git tag --list "${base}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${base}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${base}.${patch}"; fi
+          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
           echo "Criando tag: $version"
           git tag $version
           git push origin $version
@@ -74,10 +92,9 @@ runs:
           fi
           echo "Tag final do pacote: $version"
 
-          # Atualizar CHANGELOG.md
-          if [[ -n "${{ inputs.changelog_entry }}" ]]; then
+          if [[ -n "$CHANGELOG_ENTRY" ]]; then
             echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
-            echo "${{ inputs.changelog_entry }}" >> CHANGELOG.md
+            echo "$CHANGELOG_ENTRY" >> CHANGELOG.md
             echo "" >> CHANGELOG.md
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -89,14 +106,13 @@ runs:
           git tag $version
           git push origin $version
 
-          # Branch develop/0x correspondente à release
           major=$(echo $version | cut -d'.' -f1)
           develop_branch="develop/${major}x"
           if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
+              echo "Branch $develop_branch já existe"
           else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
+              git checkout -b $develop_branch
+              git push origin $develop_branch
           fi
 
           # Apagar todas as dev tags
@@ -111,19 +127,17 @@ runs:
           git tag $new_tag
           git push origin $new_tag
 
-          # Branch de release
           release_branch="release/${branch_major}x"
           git checkout -b $release_branch
           git push origin $release_branch
 
-          # Branch develop/0x correspondente à release
           major=$(echo $new_tag | cut -d'.' -f1)
           develop_branch="develop/${major}x"
           if git ls-remote --exit-code --heads origin $develop_branch; then
-            echo "Branch $develop_branch já existe"
+              echo "Branch $develop_branch já existe"
           else
-            git checkout -b $develop_branch
-            git push origin $develop_branch
+              git checkout -b $develop_branch
+              git push origin $develop_branch
           fi
 
           # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
@@ -132,6 +146,8 @@ runs:
               git push origin --delete "$branch"
             fi
           done
+
+          # Apagar todas as dev tags
           for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
           ;;
 
@@ -149,17 +165,16 @@ runs:
         develop-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
           series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
-          # Pegar última tag da série 0.* (qualquer patch)
           latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then
-          patch=0
-          new_tag="$series.$patch"
+            patch=0
+            new_tag="$series.$patch"
           else
-          patch=$(echo $latest_tag | cut -d'.' -f3)
-          patch=$((patch+1))
-          major=$(echo $latest_tag | cut -d'.' -f1)
-          minor=$(echo $latest_tag | cut -d'.' -f2)
-          new_tag="$major.$minor.$patch"
+            patch=$(echo $latest_tag | cut -d'.' -f3)
+            patch=$((patch+1))
+            major=$(echo $latest_tag | cut -d'.' -f1)
+            minor=$(echo $latest_tag | cut -d'.' -f2)
+            new_tag="$major.$minor.$patch"
           fi
           echo "Criando patch tag na develop: $new_tag"
           git tag $new_tag
@@ -167,7 +182,7 @@ runs:
           ;;
 
         *)
-          echo "Modo inválido: ${{ inputs.mode }}"
+          echo "Modo inválido: $MODE"
           exit 1
           ;;
         esac
