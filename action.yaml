@@ -111,15 +111,6 @@ runs:
               git push origin $develop_branch
           fi
 
-          # Apagar todas as dev tags daquele major.minor, exceto a última
-          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          git tag --list "dev-$major.$minor.*" | while read tag; do
-            if [[ "$tag" != "$last_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
-        
           major=$(echo $latest_release | cut -d'.' -f1)
           minor=$(echo $latest_release | cut -d'.' -f2)
           last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
