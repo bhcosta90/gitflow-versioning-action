@@ -101,6 +101,14 @@ runs:
           done
 
           echo "Final Package Tag: $version"
+        
+          hotfix_branch="hotfix/${major}.x"
+          if git ls-remote --exit-code --heads origin $hotfix_branch; then
+              echo "Branch $hotfix_branch já existe"
+          else
+              git checkout -b $hotfix_branch
+              git push origin $hotfix_branch
+          fi
         ;;
 
         finalize-release)
