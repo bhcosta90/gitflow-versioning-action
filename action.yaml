@@ -155,7 +155,7 @@ runs:
           major=$(echo $latest_release | cut -d'.' -f1)
           minor=$(echo $latest_release | cut -d'.' -f2)
           last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-$major.$minor.*"); do
+          for tag in $(git tag --list "dev-$major.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
