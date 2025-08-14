@@ -126,18 +126,13 @@ runs:
             git push origin $develop_branch
           fi
 
-          # Apagar todas as dev tags
-          for tag in $(git tag --list "dev-*"); do
-            git push --delete origin "$tag"
-            git tag -d "$tag"
-          done
-
           # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
             if [[ "$branch" != "$develop_branch" ]]; then
               git push origin --delete "$branch"
             fi
           done
+          for tag in $(git tag --list "dev-*"); do git push --delete origin "$tag"; git tag -d "$tag"; done
           ;;
 
         release-patch)
