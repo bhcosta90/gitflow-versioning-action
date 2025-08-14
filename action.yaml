@@ -121,7 +121,10 @@ runs:
           echo "Tag dev: $latest_dev" 
           echo "Tag final da release: $version"
 
-          for tag in $(git tag --list "dev-$major.*"); do
+          git tag $version
+          git push origin $version
+
+          for tag in $(git tag --list "dev-$major_actual.*"); do
             if [[ "$tag" != "$latest_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
