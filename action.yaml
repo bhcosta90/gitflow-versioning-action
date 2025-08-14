@@ -140,6 +140,18 @@ runs:
           done
 
           echo "Final Package Tag: $version"
+        
+          for branch in $(git branch -r | grep "origin/hotfix/" | sed 's/origin\///'); do
+            git push origin --delete "$branch"
+          done
+        
+          release_branch="release/${major_actual}.x"
+          if git ls-remote --exit-code --heads origin $release_branch; then
+              echo "Branch $release_branch já existe"
+          else
+              git checkout -b $release_branch
+              git push origin $release_branch
+          fi
         ;;
 
         release-patch)
