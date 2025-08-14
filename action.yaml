@@ -84,12 +84,11 @@ runs:
             version="0.0.0"
           else
             major=$(echo $latest_release | cut -d'.' -f1)
-            minor_actual=$(( $(echo $latest_release | cut -d'.' -f2)))
             minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
             version="$major.$minor.0"
           fi
         
-          latest_dev=$(git tag --list "dev-$major.$minor_actual.*" --sort=-v:refname | head -n 1)
+          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           
           git tag $version
           git push origin $version
