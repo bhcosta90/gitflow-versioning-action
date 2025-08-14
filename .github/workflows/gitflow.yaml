@@ -1,37 +1,24 @@
 name: Git Flow Automation
-
 on:
   push:
     branches: [main, master, 'hotfix/*', 'release/*']
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Escolha o modo de execução'
+        description: 'Choose Action mode'
         required: true
         type: choice
-        options: [dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, hotfix-patch]
-        default: dev
-      changelog_entry:
-        description: 'Notas do CHANGELOG (apenas finalize-package)'
-        required: false
-        type: string
+        options: [finalize-package, finalize-release]
+        default: finalize-package
 
 jobs:
   gitflow:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - name: Run Gitflow Versioning
         uses: bhcosta90/gitflow-versioning-action@main
         with:
-          mode: ${{
-            github.event_name == 'workflow_dispatch' && github.event.inputs.mode ||
-            github.ref == 'refs/heads/main' && 'dev' ||
-            startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' ||
-            startsWith(github.ref, 'refs/heads/release') && 'release-patch'
-          }}
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
           changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
