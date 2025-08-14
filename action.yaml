@@ -152,8 +152,8 @@ runs:
           done
 
           # Apagar todas dev tags, mantendo última do mesmo major.minor
-          major=$(echo $new_tag | cut -d'.' -f1)
-          minor=$(echo $new_tag | cut -d'.' -f2)
+          major=$(echo $latest_release | cut -d'.' -f1)
+          minor=$(echo $latest_release | cut -d'.' -f2)
           last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           for tag in $(git tag --list "dev-$major.$minor.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
