@@ -125,51 +125,54 @@ runs:
 
         finalize-release)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
-
+          if [[ -z "$latest_release" ]]; then
+          branch_major=0
+          new_tag="1.0.0"
+          else
+          branch_major=$(echo $latest_release | cut -d'.' -f1)
+          new_major=$((branch_major + 1))
+          new_tag="$new_major.0.0"
+          fi
+        
           echo "Criando tag inicial da release: $new_tag"
           git tag $new_tag
           git push origin $new_tag
-
+        
           # Criar branch release/major.x
           release_branch="release/${branch_major}.x"
           git checkout -b $release_branch
           git push origin $release_branch
-
+        
           # Criar branch develop/major.x
           major=$(echo $new_tag | cut -d'.' -f1)
           develop_branch="develop/${major}.x"
           if git ls-remote --exit-code --heads origin $develop_branch; then
-              echo "Branch $develop_branch já existe"
+          echo "Branch $develop_branch já existe"
           else
-              git checkout -b $develop_branch
-              git push origin $develop_branch
+          git checkout -b $develop_branch
+          git push origin $develop_branch
           fi
-
+        
           # Apagar todas as branches develop/* antigas (exceto a nova)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-            if [[ "$branch" != "$develop_branch" ]]; then
-              git push origin --delete "$branch"
-            fi
+          if [[ "$branch" != "$develop_branch" ]]; then
+          git push origin --delete "$branch"
+          fi
           done
-
+        
           # Apagar todas dev tags da major atual, mantendo a última de cada minor
           major=$(echo $new_tag | cut -d'.' -f1)
-          
-          # listar todos os dev tags da major atual
           mapfile -t dev_tags < <(git tag --list "dev-$major.*.*" --sort=-v:refname)
-          
-          # criar um mapa de last_dev por minor
+        
           declare -A last_dev_per_minor
           for tag in "${dev_tags[@]}"; do
-          minor=${tag#dev-$major.}       # remove "dev-$major."
-          minor=${minor%%.*}             # pega só o minor
+          minor=${tag#dev-$major.}
+          minor=${minor%%.*}
           if [[ -z "${last_dev_per_minor[$minor]}" ]]; then
           last_dev_per_minor[$minor]=$tag
           fi
           done
-          
-          # deletar todas as dev tags exceto a última de cada minor
+        
           for tag in "${dev_tags[@]}"; do
           minor=${tag#dev-$major.}
           minor=${minor%%.*}
