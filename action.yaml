@@ -78,6 +78,7 @@ runs:
         
         finalize-package)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          last_dev=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
             major=0
             minor=0
