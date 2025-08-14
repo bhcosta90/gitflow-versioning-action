@@ -120,6 +120,9 @@ runs:
           fi
         
           last_dev=$(git tag --list "dev-$branch_major.$branch_minor.*" --sort=-v:refname | head -n 1)
+          branch_major=$(echo $last_dev | cut -d'.' -f1)
+          branch_minor=$(echo $last_dev | cut -d'.' -f2)
+
           for tag in $(git tag --list "dev-$branch_major.$branch_minor.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
