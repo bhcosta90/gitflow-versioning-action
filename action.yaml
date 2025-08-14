@@ -111,13 +111,13 @@ runs:
             minor=0
             version="0.0.0"
           else
-            major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
             major_actual=$(( $(echo $latest_release | cut -d'.' -f1)))
+            major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
             minor=0
             version="$major.$minor.0"
           fi
         
-          latest_dev=$(git tag --list "dev-$major_actual.$minor.*" --sort=-v:refname | head -n 1)
+          latest_dev=$(git tag --list "dev-$major_actual.*" --sort=-v:refname | head -n 1)
           echo "Tag dev: $latest_dev" 
           echo "Tag final da release: $version"
         ;;
