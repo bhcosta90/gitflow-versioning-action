@@ -80,6 +80,7 @@ runs:
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
             version="0.0.0"
+            minor="0"
           else
             major=$(echo $latest_release | cut -d'.' -f1)
             minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
@@ -113,17 +114,12 @@ runs:
 
           if latest_release; then
             branch_major=$(echo $latest_release | cut -d'.' -f1)
-            branch_minor=$(echo $latest_release | cut -d'.' -f2)
           else
             branch_major=0
-            branch_minor=0
           fi
         
-          last_dev=$(git tag --list "dev-$branch_major.$branch_minor.*" --sort=-v:refname | head -n 1)
-          branch_major=$(echo $last_dev | cut -d'.' -f1)
-          branch_minor=$(echo $last_dev | cut -d'.' -f2)
-
-          for tag in $(git tag --list "dev-$branch_major.$branch_minor.*"); do
+          last_dev=$(git tag --list "dev-$branch_major.$minor.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$branch_major.$minor.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
