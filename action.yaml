@@ -85,8 +85,19 @@ runs:
             git push origin "$new_tag"
             ;;
           finalize-package)
-            git tag "0.0.0" || true
-            git push origin "0.0.0" || true
+            # Detecta próxima tag estável
+            latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+            if [[ -z "$latest_stable" ]]; then
+              new_tag="0.0.0"
+            else
+              IFS='.' read -r major minor patch <<<"$latest_stable"
+              minor=$((minor+1))
+              patch=0
+              new_tag="$major.$minor.$patch"
+            fi
+
+            git tag "$new_tag" || true
+            git push origin "$new_tag" || true
 
             develop_branch="develop/0x"
             if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
@@ -97,11 +108,17 @@ runs:
             delete_dev_tags_branches
             ;;
           finalize-release)
+            # Detecta próxima tag major
             latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-            major=$(( ${latest_tag%%.*} + 1 ))
-            new_tag="$major.0.0"
-            git tag "$new_tag"
-            git push origin "$new_tag"
+            if [[ -z "$latest_tag" ]]; then
+              new_tag="1.0.0"
+            else
+              major=$(( ${latest_tag%%.*} + 1 ))
+              new_tag="$major.0.0"
+            fi
+
+            git tag "$new_tag" || true
+            git push origin "$new_tag" || true
 
             release_branch="release/0x"
             git checkout -B "$release_branch"
