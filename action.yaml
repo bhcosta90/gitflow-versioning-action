@@ -113,11 +113,13 @@ runs:
 
           # Apagar todas as dev tags daquele major.minor, exceto a última
           last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          git tag --list "dev-$major.$minor.*" | while read tag; do
-            if [[ "$tag" != "$last_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
+          mapfile -t dev_tags < <(git tag --list "dev-$major.$minor.*" --sort=-v:refname)
+          for tag in "${dev_tags[@]}"; do
+          if [[ "$tag" != "$last_dev" ]]; then
+          echo "Deletando tag $tag"
+          git push --delete origin "$tag"
+          git tag -d "$tag"
+          fi
           done
         ;;
 
