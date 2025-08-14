@@ -77,80 +77,29 @@ runs:
           ;;
         
         finalize-package)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            major=0
-            minor=0
-            version="0.0.0"
-          else
-            major=$(echo $latest_release | cut -d'.' -f1)
-            minor_actual=$(( $(echo $latest_release | cut -d'.' -f2)))
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-            version="$major.$minor.0"
-          fi
-        
-          echo "Tag final do pacote: $version"
+                      latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+             if [[ -z "$latest_release" ]]; then
+              major=0
+              minor=0
+              version="0.0.0"
+             else
+              major=$(echo $latest_release | cut -d'.' -f1)
+              minor_actual=$(( $(echo $latest_release | cut -d'.' -f2)))
+              minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
+              version="$major.$minor.0"
+             fi
+             
+             echo "Tag final do pacote: $version"
 
-          git tag $version
-          git push origin $version
-        
-          for tag in $(git tag --list "dev-$major.*"); do
-            if [[ "$tag" != "$last_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
-        ;;
-
-        finalize-package-old)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            version="0.0.0"
-            minor="0"
-          else
-            major=$(echo $latest_release | cut -d'.' -f1)
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-            version="$major.$minor.0"
-          fi
-          echo "Tag final do pacote: $version"
-
-          if [[ -n "$CHANGELOG_ENTRY" ]]; then
-            echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
-            echo "$CHANGELOG_ENTRY" >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add CHANGELOG.md
-            git commit -m "docs: atualizar CHANGELOG.md para $version"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
-
-          git tag $version
-          git push origin $version
-
-          # Criar branch hotfix/major.x
-          major=$(echo $version | cut -d'.' -f1)
-          hotfix_branch="hotfix/${major}.x"
-          if git ls-remote --exit-code --heads origin $hotfix_branch; then
-              echo "Branch $hotfix_branch já existe"
-          else
-              git checkout -b $hotfix_branch
-              git push origin $hotfix_branch
-          fi
-
-          if latest_release; then
-            branch_major=$(echo $latest_release | cut -d'.' -f1)
-          else
-            branch_major=0
-          fi
-        
-          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-$major.*"); do
-            if [[ "$tag" != "$last_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
+#          git tag $version
+#          git push origin $version
+#
+#          for tag in $(git tag --list "dev-$major.*"); do
+#            if [[ "$tag" != "$last_dev" ]]; then
+#              git push --delete origin "$tag"
+#              git tag -d "$tag"
+#            fi
+#          done
         ;;
 
         finalize-release-old)
