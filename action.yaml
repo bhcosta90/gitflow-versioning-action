@@ -18,7 +18,6 @@ runs:
     - name: Run GitFlow Logic
       shell: bash
       run: |
-        set -e
         MODE="${{ inputs.mode }}"
         REF="${GITHUB_REF#refs/heads/}"
 
@@ -60,17 +59,20 @@ runs:
         }
 
         function delete_dev_tags_branches() {
-          # Deleta tags dev-* local
-          git tag -l "dev-*" | xargs -r git tag -d
+          # Deleta tags dev-* remoto e local
+          dev_tags=$(git tag -l "dev-*")
+          if [[ -n "$dev_tags" ]]; then
+            echo "$dev_tags" | xargs -r git tag -d
+            echo "$dev_tags" | xargs -r -I {} git push origin :refs/tags/{} || true
+          fi
 
-          # Deleta tags dev-* remoto
-          git ls-remote --tags origin "dev-*" | awk '{print $2}' | sed 's#refs/tags/##' | xargs -r -I {} git push origin :refs/tags/{} || true
-
-          # Deleta branches dev-* local
-          git branch --list "dev-*" | xargs -r git branch -D
-
-          # Deleta branches dev-* remoto
-          git branch -r | grep "origin/dev-" | sed 's#origin/##' | xargs -r git push origin --delete || true
+          # Deleta branches develop/* relacionadas à major atual
+          major_branch=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 | cut -d. -f1)
+          develop_branches=$(git branch -r | grep "origin/develop/" | grep "${major_branch}x" | sed 's#origin/##')
+          if [[ -n "$develop_branches" ]]; then
+            echo "$develop_branches" | xargs -r git push origin --delete || true
+            echo "$develop_branches" | xargs -r git branch -D || true
+          fi
         }
 
         case "$MODE" in
@@ -78,20 +80,20 @@ runs:
             develop_branch="develop/0x"
             if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
               git checkout -b "$develop_branch"
-              git push -u origin "$develop_branch"
+              git push -u origin "$develop_branch" || true
             fi
-            
+
             new_tag=$(create_dev_tag)
-            git tag "$new_tag"
-            git push origin "$new_tag"
+            git tag "$new_tag" || true
+            git push origin "$new_tag" || true
             ;;
           develop-patch|release-patch)
             new_tag=$(create_patch_tag)
-            git tag "$new_tag"
-            git push origin "$new_tag"
+            git tag "$new_tag" || true
+            git push origin "$new_tag" || true
             ;;
           finalize-package)
-            # Detecta próxima tag estável
+            # Próxima tag estável
             latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             if [[ -z "$latest_stable" ]]; then
               new_tag="0.0.0"
@@ -108,12 +110,12 @@ runs:
             develop_branch="develop/0x"
             if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
               git checkout -b "$develop_branch"
-              git push -u origin "$develop_branch"
+              git push -u origin "$develop_branch" || true
             fi
+
             delete_dev_tags_branches
             ;;
           finalize-release)
-            # Detecta próxima tag major
             latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             if [[ -z "$latest_tag" ]]; then
               new_tag="1.0.0"
@@ -127,14 +129,12 @@ runs:
 
             release_branch="release/0x"
             git checkout -B "$release_branch"
-            git push -u origin "$release_branch"
+            git push -u origin "$release_branch" || true
 
             develop_branch="develop/0x"
             git checkout -B "$develop_branch"
-            git push -u origin "$develop_branch"
+            git push -u origin "$develop_branch" || true
 
-            # Remove outras branches develop/* exceto a atual
-            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete || true
             delete_dev_tags_branches
             ;;
           *)
