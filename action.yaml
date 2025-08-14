@@ -71,7 +71,7 @@ runs:
           dev)
             new_tag=$(create_dev_tag)
             git tag "$new_tag"
-            git push origin "$new_tag"
+            git push origin "$new_tag" || true
 
             # Projeto zerado: se não houver tag stable, criar release/0x
             stable_tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
