@@ -84,7 +84,7 @@ runs:
           develop-patch|release-patch)
             new_tag=$(create_patch_tag)
             git tag "$new_tag"
-            git push origin "$new_tag"
+            git push origin "$new_tag" || true
             ;;
           finalize-package)
             latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
