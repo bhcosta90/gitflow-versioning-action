@@ -32,9 +32,7 @@ runs:
         echo "Mode: $MODE, Branch: $REF"
 
         function create_dev_tag() {
-          # Última tag estável
           latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-
           if [[ -z "$latest_stable" ]]; then
             major=0
             minor=1
@@ -47,12 +45,10 @@ runs:
 
           base_dev_prefix="dev-$major.$minor"
           latest_dev=$(git tag --list "${base_dev_prefix}.*" --sort=-v:refname | head -n1)
-
           if [[ -n "$latest_dev" ]]; then
             IFS='.' read -r _ _ dev_patch <<<"${latest_dev#dev-}"
             patch=$((dev_patch+1))
           fi
-
           echo "$base_dev_prefix.$patch"
         }
 
@@ -64,13 +60,14 @@ runs:
         }
 
         function delete_dev_tags_branches() {
-          # Deleta dev-* tags local e remoto
+          # Deleta dev-* tags local
           git tag -l "dev-*" | xargs -r git tag -d
-          git tag -l "dev-*" | xargs -r -I {} git push origin :refs/tags/{}
+          # Deleta dev-* tags remoto
+          git tag -l "dev-*" | xargs -r -I {} git push origin :refs/tags/{} || true
 
-          # Deleta branches dev-* se existirem
+          # Deleta branches dev-* se existirem local e remoto
           git branch --list "dev-*" | xargs -r git branch -D
-          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r git push origin --delete
+          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r git push origin --delete || true
         }
 
         case "$MODE" in
@@ -131,7 +128,7 @@ runs:
             delete_dev_tags_branches
 
             # Remove outras branches develop/* exceto a atual
-            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete
+            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete || true
             ;;
           *)
             echo "Invalid mode: $MODE"
