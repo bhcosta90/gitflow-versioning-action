@@ -111,10 +111,8 @@ runs:
               git push origin $develop_branch
           fi
 
-          major=$(echo $latest_release | cut -d'.' -f1)
-          minor=$(echo $latest_release | cut -d'.' -f2)
-          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-$major.*"); do
+          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
@@ -153,10 +151,8 @@ runs:
           done
 
           # Apagar todas dev tags, mantendo última do mesmo major.minor
-          major=$(echo $latest_release | cut -d'.' -f1)
-          minor=$(echo $latest_release | cut -d'.' -f2)
-          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-$major.*"); do
+          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
