@@ -30,20 +30,6 @@ runs:
         case "${{ inputs.mode }}" in
 
         dev)
-        
-            LAST_COMMIT_MSG=$(git log -1 --pretty=%B | tr -d '\n')
-            LAST_COMMIT_AUTHOR=$(git log -1 --pretty=%an)
-
-            if echo "$LAST_COMMIT_MSG" | grep -Eqi "(finalize-release|finalize-package)"; then
-              echo "⚠️ Commit detectado como finalize-release/package. Pulando criação de tag dev-*."
-              exit 0
-            fi
-
-            if [ "$LAST_COMMIT_AUTHOR" = "github-actions[bot]" ]; then
-              echo "⚠️ Commit feito pelo GitHub Actions bot. Pulando criação de tag dev-*."
-              exit 0
-            fi
-
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
           latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
