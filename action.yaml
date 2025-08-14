@@ -4,7 +4,7 @@ author: "bhcosta90"
 
 inputs:
   mode:
-    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, develop-patch)"
+    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, hotfix-patch)"
     required: true
   branch:
     description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
@@ -101,14 +101,14 @@ runs:
           git tag $version
           git push origin $version
 
-          # Criar branch develop/major.x
+          # Criar branch hotfix/major.x
           major=$(echo $version | cut -d'.' -f1)
-          develop_branch="develop/${major}.x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-              echo "Branch $develop_branch já existe"
+          hotfix_branch="hotfix/${major}.x"
+          if git ls-remote --exit-code --heads origin $hotfix_branch; then
+              echo "Branch $hotfix_branch já existe"
           else
-              git checkout -b $develop_branch
-              git push origin $develop_branch
+              git checkout -b $hotfix_branch
+              git push origin $hotfix_branch
           fi
 
           # Apagar todas as dev tags daquele major.minor, exceto a última
@@ -144,19 +144,19 @@ runs:
           git checkout -b $release_branch
           git push origin $release_branch
 
-          # Criar branch develop/major.x
+          # Criar branch hotfix/major.x
           major=$(echo $new_tag | cut -d'.' -f1)
-          develop_branch="develop/${major}.x"
-          if git ls-remote --exit-code --heads origin $develop_branch; then
-              echo "Branch $develop_branch já existe"
+          hotfix_branch="hotfix/${major}.x"
+          if git ls-remote --exit-code --heads origin $hotfix_branch; then
+              echo "Branch $hotfix_branch já existe"
           else
-              git checkout -b $develop_branch
-              git push origin $develop_branch
+              git checkout -b $hotfix_branch
+              git push origin $hotfix_branch
           fi
 
-          # Apagar todas as branches develop/* antigas (exceto a nova)
-          for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
-            if [[ "$branch" != "$develop_branch" ]]; then
+          # Apagar todas as branches hotfix/* antigas (exceto a nova)
+          for branch in $(git branch -r | grep "origin/hotfix/" | sed 's/origin\///'); do
+            if [[ "$branch" != "$hotfix_branch" ]]; then
               git push origin --delete "$branch"
             fi
           done
@@ -184,9 +184,9 @@ runs:
           git push origin $new_tag
           ;;
 
-        develop-patch)
+        hotfix-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)\.x/\1/')
+          series=$(echo "$branch_name" | sed -E 's/hotfix\/([0-9]+)\.x/\1/')
           latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then
             patch=0
@@ -198,7 +198,7 @@ runs:
             minor=$(echo $latest_tag | cut -d'.' -f2)
             new_tag="$major.$minor.$patch"
           fi
-          echo "Criando patch tag na develop: $new_tag"
+          echo "Criando patch tag na hotfix: $new_tag"
           git tag $new_tag
           git push origin $new_tag
           ;;
