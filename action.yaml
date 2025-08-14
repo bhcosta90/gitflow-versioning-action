@@ -113,7 +113,7 @@ runs:
           else
             major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
             major_actual=$(( $(echo $latest_release | cut -d'.' -f1)))
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) ))
+            minor=0
             version="$major.$minor.0"
           fi
         
