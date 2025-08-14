@@ -79,55 +79,47 @@ runs:
         finalize-package)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
-          version="0.0.0"
-          prev_minor=0
+            version="0.0.0"
           else
-          major=$(echo $latest_release | cut -d'.' -f1)
-          minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-          version="$major.$minor.0"
-          prev_minor=$((minor - 1))
+            major=$(echo $latest_release | cut -d'.' -f1)
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
+            version="$major.$minor.0"
           fi
           echo "Tag final do pacote: $version"
-        
+
           if [[ -n "$CHANGELOG_ENTRY" ]]; then
-          echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
-          echo "$CHANGELOG_ENTRY" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs: atualizar CHANGELOG.md para $version"
-          git push origin HEAD:${GITHUB_REF_NAME}
+            echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
+            echo "$CHANGELOG_ENTRY" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "docs: atualizar CHANGELOG.md para $version"
+            git push origin HEAD:${GITHUB_REF_NAME}
           fi
-        
+
           git tag $version
           git push origin $version
-        
+
           # Criar branch develop/major.x
+          major=$(echo $version | cut -d'.' -f1)
           develop_branch="develop/${major}.x"
           if git ls-remote --exit-code --heads origin $develop_branch; then
-          echo "Branch $develop_branch já existe"
+              echo "Branch $develop_branch já existe"
           else
-          git checkout -b $develop_branch
-          git push origin $develop_branch
+              git checkout -b $develop_branch
+              git push origin $develop_branch
           fi
-        
-          # Apagar todas as dev tags da minor anterior, exceto a última
-          prev_major=$major
 
-        # Apagar dev tags da major anterior, mantendo a última de cada minor
-          for minor in $(git tag --list "dev-$prev_major.*.*" | cut -d. -f2 | sort -u); do
-          last_dev=$(git tag --list "dev-$prev_major.$minor.*" --sort=-v:refname | head -n 1)
-          mapfile -t dev_tags < <(git tag --list "dev-$prev_major.$minor.*")
-          for tag in "${dev_tags[@]}"; do
-          if [[ "$tag" != "$last_dev" ]]; then
-          echo "Deletando tag $tag"
-          git push --delete origin "$tag"
-          git tag -d "$tag"
-          fi
+          # Apagar todas as dev tags daquele major.minor, exceto a última
+          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
+          git tag --list "dev-$major.$minor.*" | while read tag; do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
           done
-          done
-          ;;
+        ;;
 
         finalize-release)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
@@ -160,19 +152,14 @@ runs:
           done
 
           # Apagar todas dev tags, mantendo última do mesmo major.minor
-          prev_major=$branch_major
-
-        # Apagar dev tags da major anterior, mantendo a última de cada minor
-          for minor in $(git tag --list "dev-$prev_major.*.*" | cut -d. -f2 | sort -u); do
-          last_dev=$(git tag --list "dev-$prev_major.$minor.*" --sort=-v:refname | head -n 1)
-          mapfile -t dev_tags < <(git tag --list "dev-$prev_major.$minor.*")
-          for tag in "${dev_tags[@]}"; do
-          if [[ "$tag" != "$last_dev" ]]; then
-          echo "Deletando tag $tag"
-          git push --delete origin "$tag"
-          git tag -d "$tag"
-          fi
-          done
+          major=$(echo $new_tag | cut -d'.' -f1)
+          minor=$(echo $new_tag | cut -d'.' -f2)
+          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$major.$minor.*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
           done
         ;;
 
