@@ -105,43 +105,21 @@ runs:
 
         finalize-release)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
-
-          echo "Criando tag inicial da release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-
-          # Criar branch release/major.x
-          release_branch="release/${branch_major}.x"
-          git checkout -b $release_branch
-          git push origin $release_branch
-
-          # Criar branch hotfix/major.x
-          major=$(echo $new_tag | cut -d'.' -f1)
-          hotfix_branch="hotfix/${major}.x"
-          if git ls-remote --exit-code --heads origin $hotfix_branch; then
-              echo "Branch $hotfix_branch já existe"
+          if [[ -z "$latest_release" ]]; then
+            major=0
+            major_actual=0
+            minor=0
+            version="0.0.0"
           else
-              git checkout -b $hotfix_branch
-              git push origin $hotfix_branch
+            major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
+            major_actual=$(( $(echo $latest_release | cut -d'.' -f1)))
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) ))
+            version="$major.$minor.0"
           fi
-
-          # Apagar todas as branches hotfix/* antigas (exceto a nova)
-          for branch in $(git branch -r | grep "origin/hotfix/" | sed 's/origin\///'); do
-            if [[ "$branch" != "$hotfix_branch" ]]; then
-              git push origin --delete "$branch"
-            fi
-          done
-
-          # Apagar todas dev tags, mantendo última do mesmo major.minor
-          major=$(echo $latest_release | cut -d'.' -f1)
-          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-$major.*"); do
-            if [[ "$tag" != "$last_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
+        
+          latest_dev=$(git tag --list "dev-$major_actual.$minor.*" --sort=-v:refname | head -n 1)
+          echo "Tag dev: $latest_dev" 
+          echo "Tag final da release: $version"
         ;;
 
         release-patch)
