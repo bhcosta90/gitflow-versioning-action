@@ -1,5 +1,5 @@
 name: "Gitflow Versioning"
-description: "Automates GitFlow: dev tags, release tags, patch increments, and CHANGELOG.md generation."
+description: "Automates GitFlow: dev tags, release tags, patch increments, and branch management."
 author: "bhcosta90"
 
 inputs:
@@ -15,20 +15,12 @@ runs:
       with:
         fetch-depth: 0
 
-    - name: Setup Ruby (for changelog)
-      if: ${{ inputs.mode == 'finalize-package' || inputs.mode == 'finalize-release' }}
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.2'
-
     - name: Run GitFlow Logic
       shell: bash
       run: |
         set -e
         MODE="${{ inputs.mode }}"
         REF="${GITHUB_REF#refs/heads/}"
-        USER="${GITHUB_REPOSITORY_OWNER}"
-        PROJECT="$(basename $GITHUB_REPOSITORY)"
 
         # Auto-detect mode if not set
         if [[ -z "$MODE" ]]; then
@@ -40,7 +32,7 @@ runs:
         echo "Mode: $MODE, Branch: $REF"
 
         function create_dev_tag() {
-          # Pega última estável
+          # Última tag estável
           latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
 
           if [[ -z "$latest_stable" ]]; then
@@ -64,6 +56,23 @@ runs:
           echo "$base_dev_prefix.$patch"
         }
 
+        function create_patch_tag() {
+          latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          IFS='.' read -r major minor patch <<<"$latest_tag"
+          patch=$((patch+1))
+          echo "$major.$minor.$patch"
+        }
+
+        function delete_dev_tags_branches() {
+          # Deleta dev-* tags local e remoto
+          git tag -l "dev-*" | xargs -r -n1 git tag -d
+          git tag -l "dev-*" | xargs -r -n1 -I {} git push origin :refs/tags/{}
+
+          # Deleta branches dev-* se existirem
+          git branch --list "dev-*" | xargs -r -n1 git branch -D
+          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r -n1 git push origin --delete
+        }
+
         case "$MODE" in
           dev)
             new_tag=$(create_dev_tag)
@@ -71,22 +80,21 @@ runs:
             git push origin "$new_tag"
             ;;
           develop-patch|release-patch)
-            latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-            IFS='.' read -r major minor patch <<<"$latest_tag"
-            patch=$((patch+1))
-            new_tag="$major.$minor.$patch"
+            new_tag=$(create_patch_tag)
             git tag "$new_tag"
             git push origin "$new_tag"
             ;;
           finalize-package)
-            new_tag="0.0.0"
-            git tag "$new_tag"
-            git push origin "$new_tag"
+            git tag "0.0.0" || true
+            git push origin "0.0.0" || true
+
             develop_branch="develop/0x"
-            git checkout -B "$develop_branch"
-            git push -u origin "$develop_branch"
-            git tag -l "dev-*" | xargs -r git tag -d
-            git push origin --delete $(git tag -l "dev-*") || true
+            if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
+              git checkout -b "$develop_branch"
+              git push -u origin "$develop_branch"
+            fi
+
+            delete_dev_tags_branches
             ;;
           finalize-release)
             latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
@@ -94,14 +102,18 @@ runs:
             new_tag="$major.0.0"
             git tag "$new_tag"
             git push origin "$new_tag"
+
             release_branch="release/0x"
             git checkout -B "$release_branch"
             git push -u origin "$release_branch"
+
             develop_branch="develop/0x"
             git checkout -B "$develop_branch"
             git push -u origin "$develop_branch"
-            git tag -l "dev-*" | xargs -r git tag -d
-            git push origin --delete $(git tag -l "dev-*") || true
+
+            delete_dev_tags_branches
+
+            # Remove outras branches develop/* exceto a atual
             git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r -n1 git push origin --delete
             ;;
           *)
