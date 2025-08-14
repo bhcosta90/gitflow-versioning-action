@@ -153,7 +153,6 @@ runs:
             fi
           done
 
-          # Apagar todas dev tags, mantendo última do mesmo major.minor
           # Apagar todas dev tags da major atual, mantendo a última de cada minor
           major=$(echo $new_tag | cut -d'.' -f1)
           
