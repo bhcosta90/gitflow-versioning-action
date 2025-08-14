@@ -78,7 +78,6 @@ runs:
         
         finalize-package)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then
             major=0
             minor=0
@@ -89,6 +88,8 @@ runs:
             minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
             version="$major.$minor.0"
           fi
+        
+          latest_dev=$(git tag --list "dev-$major.$minor_actual.*" --sort=-v:refname | head -n 1)
           
           git tag $version
           git push origin $version
