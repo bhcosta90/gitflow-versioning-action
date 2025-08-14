@@ -90,15 +90,22 @@ runs:
         
           latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           
-          git tag $version
-          git push origin $version
+          if [[ -n "$latest_dev" ]]; then
+            git tag $version $latest_dev
+            git push origin $version
+          else
+            git tag $version
+            git push origin $version
+          fi
   
-          for tag in $(git tag --list "dev-$major.*"); do
-            if [[ "$tag" != "$latest_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
+          if [[ -n "$latest_dev" ]]; then
+            for tag in $(git tag --list "dev-$major.*"); do
+              if [[ "$tag" != "$latest_dev" ]]; then
+                git push --delete origin "$tag"
+                git tag -d "$tag"
+              fi
+            done
+          fi
 
           echo "Final Package Tag: $version"
         
@@ -129,8 +136,13 @@ runs:
           echo "Tag dev: $latest_dev" 
           echo "Tag final da release: $version"
 
-          git tag $version
-          git push origin $version
+          if [[ -n "$latest_dev" ]]; then
+            git tag $version $latest_dev
+            git push origin $version
+          else
+            git tag $version
+            git push origin $version
+          fi
 
           for tag in $(git tag --list "dev-$major_actual.*"); do
             if [[ "$tag" != "$latest_dev" ]]; then
