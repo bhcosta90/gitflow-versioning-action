@@ -65,12 +65,12 @@ runs:
 
         function delete_dev_tags_branches() {
           # Deleta dev-* tags local e remoto
-          git tag -l "dev-*" | xargs -r -n1 git tag -d
-          git tag -l "dev-*" | xargs -r -n1 -I {} git push origin :refs/tags/{}
+          git tag -l "dev-*" | xargs -r git tag -d
+          git tag -l "dev-*" | xargs -r -I {} git push origin :refs/tags/{}
 
           # Deleta branches dev-* se existirem
-          git branch --list "dev-*" | xargs -r -n1 git branch -D
-          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r -n1 git push origin --delete
+          git branch --list "dev-*" | xargs -r git branch -D
+          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r git push origin --delete
         }
 
         case "$MODE" in
@@ -114,7 +114,7 @@ runs:
             delete_dev_tags_branches
 
             # Remove outras branches develop/* exceto a atual
-            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r -n1 git push origin --delete
+            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete
             ;;
           *)
             echo "Invalid mode: $MODE"
