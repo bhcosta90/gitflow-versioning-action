@@ -49,7 +49,6 @@ runs:
               echo "Criação de dev tag pulada."
               exit 0
           fi
-
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
           latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
@@ -102,21 +101,17 @@ runs:
           git push origin $version
 
           major=$(echo $version | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
+          minor=$(echo $version | cut -d'.' -f2)
+          develop_branch="develop/${major}.${minor}"
           if git ls-remote --exit-code --heads origin $develop_branch; then
               echo "Branch $develop_branch já existe"
           else
               git checkout -b $develop_branch
               git push origin $develop_branch
           fi
-          # Apagar todas as dev tags
-          major=$(echo $version | cut -d'.' -f1)
-          minor=$(echo $version | cut -d'.' -f2)
-          
-          # Última dev tag daquele major.minor
-          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          
+
           # Apagar todas dev tags daquele major.minor exceto a última
+          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
           for tag in $(git tag --list "dev-$major.$minor.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
@@ -133,12 +128,13 @@ runs:
           git tag $new_tag
           git push origin $new_tag
 
-          release_branch="release/${branch_major}x"
+          release_branch="release/${branch_major}.0"
           git checkout -b $release_branch
           git push origin $release_branch
 
           major=$(echo $new_tag | cut -d'.' -f1)
-          develop_branch="develop/${major}x"
+          minor=$(echo $new_tag | cut -d'.' -f2)
+          develop_branch="develop/${major}.${minor}"
           if git ls-remote --exit-code --heads origin $develop_branch; then
               echo "Branch $develop_branch já existe"
           else
@@ -146,15 +142,16 @@ runs:
               git push origin $develop_branch
           fi
 
-          # Apagar todas as branches develop/* antigas (exceto a nova develop/0x)
+          # Apagar todas as branches develop/* antigas (exceto a nova)
           for branch in $(git branch -r | grep "origin/develop/" | sed 's/origin\///'); do
             if [[ "$branch" != "$develop_branch" ]]; then
               git push origin --delete "$branch"
             fi
           done
-          # Apagar todas as dev tags
-          last_dev=$(git tag --list "dev-*" --sort=-v:refname | head -n 1)
-          for tag in $(git tag --list "dev-*"); do
+
+          # Apagar todas dev tags exceto a última do major.minor
+          last_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$major.$minor.*"); do
             if [[ "$tag" != "$last_dev" ]]; then
               git push --delete origin "$tag"
               git tag -d "$tag"
@@ -164,7 +161,7 @@ runs:
 
         release-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)x/\1/')
+          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)\..*/\1/')
           latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
           new_tag="$series_number.$minor.$patch"
@@ -175,7 +172,7 @@ runs:
 
         develop-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)x/\1/')
+          series=$(echo "$branch_name" | sed -E 's/develop\/([0-9]+)\..*/\1/')
           latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then
             patch=0
