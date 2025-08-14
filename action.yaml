@@ -113,10 +113,12 @@ runs:
           fi
         
           # Apagar todas as dev tags da minor anterior, exceto a última
-          if [[ $prev_minor -ge 0 ]]; then
-          for major_minor in "$major.$prev_minor"; do
-          last_dev=$(git tag --list "dev-$major_minor.*" --sort=-v:refname | head -n 1)
-          mapfile -t dev_tags < <(git tag --list "dev-$major_minor.*" --sort=-v:refname)
+          prev_major=$major
+
+        # Apagar dev tags da major anterior, mantendo a última de cada minor
+          for minor in $(git tag --list "dev-$prev_major.*.*" | cut -d. -f2 | sort -u); do
+          last_dev=$(git tag --list "dev-$prev_major.$minor.*" --sort=-v:refname | head -n 1)
+          mapfile -t dev_tags < <(git tag --list "dev-$prev_major.$minor.*")
           for tag in "${dev_tags[@]}"; do
           if [[ "$tag" != "$last_dev" ]]; then
           echo "Deletando tag $tag"
@@ -124,15 +126,8 @@ runs:
           git tag -d "$tag"
           fi
           done
-          
-          # Apagar dev branches da minor anterior
-          for branch in $(git branch -r | grep "origin/dev/$major.$prev_minor\." | sed 's/origin\///'); do
-          echo "Deletando branch $branch"
-          git push origin --delete "$branch"
           done
-          done
-          fi
-        ;;
+          ;;
 
         finalize-release)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
