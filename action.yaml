@@ -90,19 +90,9 @@ runs:
           fi
           
           echo "Tag final do pacote: $version"
-
-#          git tag $version
-#          git push origin $version
-#
-#          for tag in $(git tag --list "dev-$major.*"); do
-#            if [[ "$tag" != "$last_dev" ]]; then
-#              git push --delete origin "$tag"
-#              git tag -d "$tag"
-#            fi
-#          done
         ;;
 
-        finalize-release-old)
+        finalize-release)
           latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
 
