@@ -35,7 +35,7 @@ runs:
           latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
           if [[ -z "$latest_stable" ]]; then
             major=0
-            minor=1
+            minor=0
             patch=0
           else
             IFS='.' read -r major minor patch <<<"$latest_stable"
@@ -60,30 +60,26 @@ runs:
         }
 
         function delete_dev_tags_branches() {
-          # Deleta tags dev-* local
+          # Deleta tags dev-* locais
           git tag -l "dev-*" | xargs -r git tag -d
 
-          # Deleta tags dev-* remoto
+          # Deleta tags dev-* remotas
           git ls-remote --tags origin "dev-*" | awk '{print $2}' | sed 's#refs/tags/##' | xargs -r -I {} git push origin :refs/tags/{} || true
-
-          # Deleta branches dev-* local
-          git branch --list "dev-*" | xargs -r git branch -D
-
-          # Deleta branches dev-* remoto
-          git branch -r | grep "origin/dev-" | sed 's#origin/##' | xargs -r git push origin --delete || true
         }
 
         case "$MODE" in
           dev)
-            develop_branch="develop/0x"
-            if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
-              git checkout -b "$develop_branch"
-              git push -u origin "$develop_branch"
-            fi
-            
             new_tag=$(create_dev_tag)
             git tag "$new_tag"
             git push origin "$new_tag"
+
+            # Projeto zerado: se não houver tag stable, criar release/0x
+            stable_tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+            if [[ -z "$stable_tag" ]]; then
+              release_branch="release/0x"
+              git checkout -B "$release_branch"
+              git push -u origin "$release_branch"
+            fi
             ;;
           develop-patch|release-patch)
             new_tag=$(create_patch_tag)
@@ -91,12 +87,10 @@ runs:
             git push origin "$new_tag"
             ;;
           finalize-package)
-            delete_dev_tags_branches
-
-            # Detecta próxima tag estável
             latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             if [[ -z "$latest_stable" ]]; then
               new_tag="0.0.0"
+              major=0
             else
               IFS='.' read -r major minor patch <<<"$latest_stable"
               minor=$((minor+1))
@@ -104,40 +98,50 @@ runs:
               new_tag="$major.$minor.$patch"
             fi
 
+            # Cria a tag stable antes de deletar dev-*
             git tag "$new_tag" || true
             git push origin "$new_tag" || true
 
-            develop_branch="develop/0x"
+            # Cria develop/<major>x se não existir
+            develop_branch="develop/${major}x"
             if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
               git checkout -b "$develop_branch"
               git push -u origin "$develop_branch"
             fi
+
+            # Agora deleta todas as tags dev-* locais e remotas
+            delete_dev_tags_branches
             ;;
           finalize-release)
-            delete_dev_tags_branches
-
-            # Detecta próxima tag major
             latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-            if [[ -z "$latest_tag" ]]; then
-              new_tag="1.0.0"
-            else
-              major=$(( ${latest_tag%%.*} + 1 ))
-              new_tag="$major.0.0"
+            IFS='.' read -r old_major old_minor old_patch <<<"$latest_tag"
+
+            # Deleta develop da major atual
+            old_develop_branch="develop/${old_major}x"
+            if git ls-remote --exit-code --heads origin "$old_develop_branch"; then
+                git push origin --delete "$old_develop_branch"
             fi
 
+            # Próxima major
+            new_major=$((old_major + 1))
+            new_tag="$new_major.0.0"
+
+            # Cria a tag stable antes de deletar dev-*
             git tag "$new_tag" || true
             git push origin "$new_tag" || true
 
-            release_branch="release/0x"
+            # Cria release/<old_major>x
+            release_branch="release/${old_major}x"
             git checkout -B "$release_branch"
             git push -u origin "$release_branch"
 
-            develop_branch="develop/0x"
+            # Cria develop/<new_major>x
+            develop_branch="develop/${new_major}x"
             git checkout -B "$develop_branch"
             git push -u origin "$develop_branch"
 
-            # Remove outras branches develop/* exceto a atual
-            git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete || true
+            # Remove tags dev-* locais e remotas
+            delete_dev_tags_branches
             ;;
           *)
             echo "Invalid mode: $MODE"
