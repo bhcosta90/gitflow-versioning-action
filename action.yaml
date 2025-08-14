@@ -60,14 +60,17 @@ runs:
         }
 
         function delete_dev_tags_branches() {
-          # Deleta dev-* tags local
+          # Deleta tags dev-* local
           git tag -l "dev-*" | xargs -r git tag -d
-          # Deleta dev-* tags remoto
-          git tag -l "dev-*" | xargs -r -I {} git push origin :refs/tags/{} || true
 
-          # Deleta branches dev-* se existirem local e remoto
+          # Deleta tags dev-* remoto
+          git ls-remote --tags origin "dev-*" | awk '{print $2}' | sed 's#refs/tags/##' | xargs -r -I {} git push origin :refs/tags/{} || true
+
+          # Deleta branches dev-* local
           git branch --list "dev-*" | xargs -r git branch -D
-          git branch -r | grep "origin/dev-" | sed 's/origin\///' | xargs -r git push origin --delete || true
+
+          # Deleta branches dev-* remoto
+          git branch -r | grep "origin/dev-" | sed 's#origin/##' | xargs -r git push origin --delete || true
         }
 
         case "$MODE" in
@@ -82,6 +85,8 @@ runs:
             git push origin "$new_tag"
             ;;
           finalize-package)
+            delete_dev_tags_branches
+
             # Detecta próxima tag estável
             latest_stable=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             if [[ -z "$latest_stable" ]]; then
@@ -101,10 +106,10 @@ runs:
               git checkout -b "$develop_branch"
               git push -u origin "$develop_branch"
             fi
-
-            delete_dev_tags_branches
             ;;
           finalize-release)
+            delete_dev_tags_branches
+
             # Detecta próxima tag major
             latest_tag=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             if [[ -z "$latest_tag" ]]; then
@@ -124,8 +129,6 @@ runs:
             develop_branch="develop/0x"
             git checkout -B "$develop_branch"
             git push -u origin "$develop_branch"
-
-            delete_dev_tags_branches
 
             # Remove outras branches develop/* exceto a atual
             git branch -r | grep "origin/develop/" | grep -v "$develop_branch" | sed 's/origin\///' | xargs -r git push origin --delete || true
