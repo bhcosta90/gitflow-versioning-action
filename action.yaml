@@ -75,6 +75,12 @@ runs:
 
         case "$MODE" in
           dev)
+            develop_branch="develop/0x"
+            if ! git ls-remote --exit-code --heads origin "$develop_branch"; then
+              git checkout -b "$develop_branch"
+              git push -u origin "$develop_branch"
+            fi
+            
             new_tag=$(create_dev_tag)
             git tag "$new_tag"
             git push origin "$new_tag"
