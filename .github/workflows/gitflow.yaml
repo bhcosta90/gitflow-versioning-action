@@ -11,10 +11,10 @@ on:
       mode:
         description: 'Choose GitFlow mode'
         required: false
-      changelog_entry:
-        description: 'Optional notes for CHANGELOG.md'
-        required: false
-
+        type: choice
+        options:
+          - finalize-package
+          - finalize-release
 jobs:
   gitflow:
     runs-on: ubuntu-latest
