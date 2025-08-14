@@ -1,7 +1,7 @@
 name: Git Flow Automation
 on:
   push:
-    branches: [main, master, 'hotfix/*', 'release/*']
+    branches: [main, master, 'develop/*', 'release/*']
   workflow_dispatch:
     inputs:
       mode:
@@ -20,5 +20,5 @@ jobs:
       - name: Run Gitflow Versioning
         uses: bhcosta90/gitflow-versioning-action@main
         with:
-          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/develop') && 'develop-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
           changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
