@@ -20,42 +20,6 @@ runs:
     - name: Detect base and latest tag
       shell: bash
       run: |
-        generate_changelog() {
-          local new_version="$1"
-          local previous_tag
-        
-          previous_tag=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
-        
-          if [[ -n "$previous_tag" ]]; then
-            # Gera o conteúdo do changelog ANTES do commit
-            local changelog_content
-            changelog_content=$(git log "${previous_tag}"..HEAD --pretty=format:"- %s (%ae)" --no-merges \
-              | grep -v "docs: update changelog for version" \
-              | sed -E 's/.*\+([^@]+)@.*/- \1/')
-            
-            if [[ -z "$changelog_content" ]]; then
-              changelog_content="- No changes detected"
-            fi
-            
-            # Prepara o novo conteúdo
-            local new_changelog="## ${new_version} - $(date +%Y-%m-%d)\n${changelog_content}\n"
-            
-            # Insere no topo do CHANGELOG.md
-            if [[ -f CHANGELOG.md ]]; then
-              local old_content
-              old_content=$(cat CHANGELOG.md)
-              echo -e "${new_changelog}\n${old_content}" > CHANGELOG.md
-            else
-              echo -e "${new_changelog}" > CHANGELOG.md
-            fi
-            
-            # Faz o commit do changelog
-            git add CHANGELOG.md
-            git commit -m "docs: update changelog for version ${new_version}"
-            git push origin HEAD
-          fi
-        }
-        
         git fetch --prune --tags
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
         echo "Current branch: $BRANCH"
@@ -159,7 +123,7 @@ runs:
         NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
         echo "Creating new stable version: $NEW_VERSION"
         
-        generate_changelog "$NEW_VERSION"
+        bash scripts/generate_changelog.sh "$NEW_VERSION"
 
         git tag $NEW_VERSION
         git push origin $NEW_VERSION
