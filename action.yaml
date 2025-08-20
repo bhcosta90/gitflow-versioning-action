@@ -77,7 +77,7 @@ runs:
           NEW_TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
           echo "Creating new patch tag: $NEW_TAG"
 
-          bash scripts/generate_changelog.sh "$NEW_VERSION" "$MAJOR.x"
+          bash scripts/generate_changelog.sh "$NEW_TAG" "$MAJOR.x"
 
           git tag $NEW_TAG
           git push origin $NEW_TAG
