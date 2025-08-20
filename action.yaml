@@ -81,6 +81,14 @@ runs:
         LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | head -n 1)
         VERSION=$(echo "$LAST_DEV" | cut -d'-' -f2)  # extrai "0.0.0"
         IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        
+        for TAG in $(git tag --list "dev-${MAJOR}.${MINOR}.*"); do
+          if [[ "$TAG" != "$LAST_DEV" ]]; then
+            git push --delete origin "$TAG"
+            git tag -d "$TAG"
+          fi
+        done
+
         NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
         echo "new version: $NEW_VERSION"
 
