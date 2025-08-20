@@ -129,13 +129,23 @@ runs:
 
         if [[ -n "$PREVIOUS_TAG" ]]; then
           CHANGELOG_CONTENT=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%ae)" --no-merges | sed -E 's/.*\+([^@]+)@.*/- \1/')
-
+        
           if [[ -z "$CHANGELOG_CONTENT" ]]; then
             CHANGELOG_CONTENT="- No changes detected"
           fi
-
-          # Write to CHANGELOG.md
-          echo -e "## ${NEW_VERSION} - $(date +%Y-%m-%d)\n${CHANGELOG_CONTENT}\n" >> CHANGELOG.md
+        
+          # Prepare the new content
+          NEW_CHANGELOG="## ${NEW_VERSION} - $(date +%Y-%m-%d)\n${CHANGELOG_CONTENT}\n"
+        
+          # Inserts at the top of the CHANGELOG.md
+          if [[ -f CHANGELOG.md ]]; then
+            # Salva conteúdo antigo
+            OLD_CONTENT=$(cat CHANGELOG.md)
+            echo -e "${NEW_CHANGELOG}\n${OLD_CONTENT}" > CHANGELOG.md
+          else
+            echo -e "${NEW_CHANGELOG}" > CHANGELOG.md
+          fi
+        
           git add CHANGELOG.md
           git commit -m "docs: update changelog for version ${NEW_VERSION}"
           git push origin HEAD
