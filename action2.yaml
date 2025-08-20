@@ -1,0 +1,205 @@
+name: "Gitflow Versioning"
+description: "Gerencia versões no estilo Git Flow com incremento automático de tags e atualização do CHANGELOG."
+author: "bhcosta90"
+
+inputs:
+  mode:
+    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, hotfix-patch)"
+    required: true
+  branch:
+    description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
+    required: false
+  changelog_entry:
+    description: "Notas para o CHANGELOG.md (usado no finalize-package)"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Executar GitFlow
+      shell: bash
+      run: |
+        set -e
+        MODE="${{ inputs.mode }}"
+        BRANCH="${{ inputs.branch }}"
+        CHANGELOG_ENTRY="${{ inputs.changelog_entry }}"
+
+        echo "Modo selecionado: $MODE"
+
+        # Detectar último commit para pular dev tags se for finalize
+        last_commit_msg=$(git log -1 --pretty=%B | tr -d '\n')
+        last_commit_author=$(git log -1 --pretty=%an)
+        SKIP_DEV=false
+        if [[ "$MODE" == "dev" ]]; then
+            if [[ "$last_commit_msg" =~ (finalize-package|finalize-release) ]] || [[ "$last_commit_author" == "github-actions[bot]" ]]; then
+                echo "Último commit foi finalize, pulando criação de dev tag"
+                SKIP_DEV=true
+            fi
+        fi
+
+        case "$MODE" in
+
+        dev)
+          if [ "$SKIP_DEV" = true ]; then
+              echo "Criação de dev tag pulada."
+              exit 0
+          fi
+
+          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
+          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_dev" ]]; then patch=0; else patch=${latest_dev##*.}; patch=$((patch+1)); fi
+          version="dev-$major.$minor.$patch"
+          echo "Próxima dev tag: $version"
+          git tag $version
+          git push origin $version
+          ;;
+
+        dev-branch)
+          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
+          echo "Criando tag: $version"
+          git tag $version
+          git push origin $version
+          ;;
+
+        release-branch)
+          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
+          echo "Criando tag: $version"
+          git tag $version
+          git push origin $version
+          ;;
+
+        finalize-package)
+          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_release" ]]; then
+            version="0.0.0"
+            minor="0"
+          else
+            major=$(echo $latest_release | cut -d'.' -f1)
+            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
+            version="$major.$minor.0"
+          fi
+          echo "Tag final do pacote: $version"
+
+          if [[ -n "$CHANGELOG_ENTRY" ]]; then
+            echo "## $version ($(date +'%Y-%m-%d'))" >> CHANGELOG.md
+            echo "$CHANGELOG_ENTRY" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "docs: atualizar CHANGELOG.md para $version"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
+
+          git tag $version
+          git push origin $version
+
+          # Criar branch hotfix/major.x
+          major=$(echo $version | cut -d'.' -f1)
+          hotfix_branch="hotfix/${major}.x"
+          if git ls-remote --exit-code --heads origin $hotfix_branch; then
+              echo "Branch $hotfix_branch já existe"
+          else
+              git checkout -b $hotfix_branch
+              git push origin $hotfix_branch
+          fi
+
+          if latest_release; then
+            branch_major=$(echo $latest_release | cut -d'.' -f1)
+          else
+            branch_major=0
+          fi
+        
+          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$major.*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
+          done
+        ;;
+
+        finalize-release)
+          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_release" ]]; then branch_major=0; new_tag="1.0.0"; else branch_major=$(echo $latest_release | cut -d'.' -f1); new_major=$((branch_major + 1)); new_tag="$new_major.0.0"; fi
+
+          echo "Criando tag inicial da release: $new_tag"
+          git tag $new_tag
+          git push origin $new_tag
+
+          # Criar branch release/major.x
+          release_branch="release/${branch_major}.x"
+          git checkout -b $release_branch
+          git push origin $release_branch
+
+          # Criar branch hotfix/major.x
+          major=$(echo $new_tag | cut -d'.' -f1)
+          hotfix_branch="hotfix/${major}.x"
+          if git ls-remote --exit-code --heads origin $hotfix_branch; then
+              echo "Branch $hotfix_branch já existe"
+          else
+              git checkout -b $hotfix_branch
+              git push origin $hotfix_branch
+          fi
+
+          # Apagar todas as branches hotfix/* antigas (exceto a nova)
+          for branch in $(git branch -r | grep "origin/hotfix/" | sed 's/origin\///'); do
+            if [[ "$branch" != "$hotfix_branch" ]]; then
+              git push origin --delete "$branch"
+            fi
+          done
+
+          # Apagar todas dev tags, mantendo última do mesmo major.minor
+          major=$(echo $latest_release | cut -d'.' -f1)
+          last_dev=$(git tag --list "dev-$major.*" --sort=-v:refname | head -n 1)
+          for tag in $(git tag --list "dev-$major.*"); do
+            if [[ "$tag" != "$last_dev" ]]; then
+              git push --delete origin "$tag"
+              git tag -d "$tag"
+            fi
+          done
+        ;;
+
+        release-patch)
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)\.x/\1/')
+          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
+          new_tag="$series_number.$minor.$patch"
+          echo "Criando patch tag na release: $new_tag"
+          git tag $new_tag
+          git push origin $new_tag
+          ;;
+
+        hotfix-patch)
+          branch_name=$(git rev-parse --abbrev-ref HEAD)
+          series=$(echo "$branch_name" | sed -E 's/hotfix\/([0-9]+)\.x/\1/')
+          latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
+          if [[ -z "$latest_tag" ]]; then
+            patch=0
+            new_tag="$series.$patch"
+          else
+            patch=$(echo $latest_tag | cut -d'.' -f3)
+            patch=$((patch+1))
+            major=$(echo $latest_tag | cut -d'.' -f1)
+            minor=$(echo $latest_tag | cut -d'.' -f2)
+            new_tag="$major.$minor.$patch"
+          fi
+          echo "Criando patch tag na hotfix: $new_tag"
+          git tag $new_tag
+          git push origin $new_tag
+          ;;
+
+        *)
+          echo "Modo inválido: $MODE"
+          exit 1
+          ;;
+        esac
