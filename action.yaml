@@ -17,7 +17,7 @@ runs:
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
 
-    - name: Detectar branch e última tag
+    - name: Detect white and last tag
       shell: bash
       run: |
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -26,10 +26,13 @@ runs:
         if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
           LAST_TAG=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
         
+          echo "Checking if Branch 0.x exists..."
+          BRANCH_EXISTS=$(git ls-remote --heads origin 1.x)
+        
           if [[ -z "$LAST_TAG" ]]; then
-            echo "No stable tags found. Creating 0.0.0..."
-            git tag 0.0.0
-            git push origin 0.0.0
+            echo "No stable tags found. Creating dev-0.0.0-0-rc..."
+            git tag dev-0.0.0-0-rc
+            git push origin dev-0.0.0-0-rc
             exit 0
           fi
         
