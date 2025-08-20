@@ -1,203 +1,76 @@
-name: "Gitflow Versioning"
-description: "Gerencia versões no estilo Git Flow com incremento automático de tags e atualização do CHANGELOG."
-author: "bhcosta90"
+name: Versioning Action
+description: GitHub Action para versionamento semântico automatizado
+author: Bruno
 
 inputs:
   mode:
-    description: "Modo de execução (dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, hotfix-patch)"
+    description: 'Modo de execução: auto ou release'
     required: true
-  branch:
-    description: "Nome da branch base (opcional, usado em dev-branch e release-branch)"
-    required: false
-  changelog_entry:
-    description: "Notas para o CHANGELOG.md (usado no finalize-package)"
-    required: false
+    default: 'auto'
 
 runs:
   using: "composite"
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Executar GitFlow
+    - name: Configurar Git
       shell: bash
       run: |
-        set -e
-        MODE="${{ inputs.mode }}"
-        BRANCH="${{ inputs.branch }}"
-        CHANGELOG_ENTRY="${{ inputs.changelog_entry }}"
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
 
-        echo "Modo selecionado: $MODE"
+    - name: Detectar branch e última tag
+      shell: bash
+      run: |
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        echo "Branch atual: $BRANCH"
 
-        # Detectar último commit para pular dev tags se for finalize
-        last_commit_msg=$(git log -1 --pretty=%B | tr -d '\n')
-        last_commit_author=$(git log -1 --pretty=%an)
-        SKIP_DEV=false
-        if [[ "$MODE" == "dev" ]]; then
-            if [[ "$last_commit_msg" =~ (finalize-package|finalize-release) ]] || [[ "$last_commit_author" == "github-actions[bot]" ]]; then
-                echo "Último commit foi finalize, pulando criação de dev tag"
-                SKIP_DEV=true
-            fi
+        if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+          LAST_TAG=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
+          echo "Última tag estável: $LAST_TAG"
+
+          MAJOR=$(echo $LAST_TAG | cut -d. -f1)
+          MINOR=$(echo $LAST_TAG | cut -d. -f2)
+          PATCH=$(echo $LAST_TAG | cut -d. -f3)
+
+          NEXT_MINOR=$((MINOR + 1))
+          DEV_TAG="dev-${MAJOR}.${NEXT_MINOR}.0-$(date +%s)-rc"
+          echo "Criando tag de desenvolvimento: $DEV_TAG"
+
+          git tag $DEV_TAG
+          git push origin $DEV_TAG
+
+        elif [[ "$BRANCH" =~ ^[0-9]+\.x$ ]]; then
+          MAJOR=$(echo $BRANCH | cut -d. -f1)
+          LAST_TAG=$(git tag --list "${MAJOR}.*" --sort=-v:refname | head -n 1)
+          echo "Última tag da $BRANCH: $LAST_TAG"
+
+          PATCH=$(echo $LAST_TAG | cut -d. -f3)
+          NEXT_PATCH=$((PATCH + 1))
+          NEW_TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "Criando nova tag de patch: $NEW_TAG"
+
+          git tag $NEW_TAG
+          git push origin $NEW_TAG
         fi
 
-        case "$MODE" in
+    - name: Finalizar pacote (modo release)
+      if: ${{ inputs.mode == 'release' }}
+      shell: bash
+      run: |
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        MAJOR=$(echo $BRANCH | cut -d. -f1)
+        MINOR=$(git tag --list "dev-${MAJOR}.*" | tail -n 1 | cut -d. -f2)
 
-        dev)
-          if [ "$SKIP_DEV" = true ]; then
-              echo "Criação de dev tag pulada."
-              exit 0
+        echo "Limpando tags dev-${MAJOR}.${MINOR}.* exceto a última"
+        LAST_DEV=$(git tag --list "dev-${MAJOR}.${MINOR}.*" --sort=-v:refname | tail -n 1)
+
+        for TAG in $(git tag --list "dev-${MAJOR}.${MINOR}.*"); do
+          if [[ "$TAG" != "$LAST_DEV" ]]; then
+            git tag -d $TAG
+            git push origin :refs/tags/$TAG
           fi
+        done
 
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then major=0; minor=0; else major=$(echo $latest_release | cut -d'.' -f1); minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 )); fi
-          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_dev" ]]; then patch=0; else patch=${latest_dev##*.}; patch=$((patch+1)); fi
-          version="dev-$major.$minor.$patch"
-          echo "Próxima dev tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-
-        dev-branch)
-          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-
-        release-branch)
-          latest=$(git tag --list "${BRANCH}.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest" ]]; then version="${BRANCH}.0"; else patch=${latest##*.}; patch=$((patch+1)); version="${BRANCH}.${patch}"; fi
-          echo "Criando tag: $version"
-          git tag $version
-          git push origin $version
-          ;;
-        
-        finalize-package)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            major=0
-            minor=0
-            version="0.0.0"
-          else
-            major=$(echo $latest_release | cut -d'.' -f1)
-            minor=$(( $(echo $latest_release | cut -d'.' -f2) + 1 ))
-            version="$major.$minor.0"
-          fi
-        
-          latest_dev=$(git tag --list "dev-$major.$minor.*" --sort=-v:refname | head -n 1)
-          
-          if [[ -n "$latest_dev" ]]; then
-            git tag $version $latest_dev
-            git push origin $version
-          else
-            git tag $version
-            git push origin $version
-          fi
-  
-          if [[ -n "$latest_dev" ]]; then
-            for tag in $(git tag --list "dev-$major.*"); do
-              if [[ "$tag" != "$latest_dev" ]]; then
-                git push --delete origin "$tag"
-                git tag -d "$tag"
-              fi
-            done
-          fi
-
-          echo "Final Package Tag: $version"
-        
-          hotfix_branch="hotfix/${major}.x"
-          if git ls-remote --exit-code --heads origin $hotfix_branch; then
-              echo "Branch $hotfix_branch já existe"
-          else
-              git checkout -b $hotfix_branch
-              git push origin $hotfix_branch
-          fi
-        ;;
-
-        finalize-release)
-          latest_release=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_release" ]]; then
-            major=0
-            major_actual=0
-            minor=0
-            version="0.0.0"
-          else
-            major_actual=$(( $(echo $latest_release | cut -d'.' -f1)))
-            major=$(( $(echo $latest_release | cut -d'.' -f1) + 1 ))
-            minor=0
-            version="$major.$minor.0"
-          fi
-        
-          latest_dev=$(git tag --list "dev-$major_actual.*" --sort=-v:refname | head -n 1)
-          echo "Tag dev: $latest_dev" 
-          echo "Tag final da release: $version"
-
-          if [[ -n "$latest_dev" ]]; then
-            git tag $version $latest_dev
-            git push origin $version
-          else
-            git tag $version
-            git push origin $version
-          fi
-
-          for tag in $(git tag --list "dev-$major_actual.*"); do
-            if [[ "$tag" != "$latest_dev" ]]; then
-              git push --delete origin "$tag"
-              git tag -d "$tag"
-            fi
-          done
-
-          echo "Final Package Tag: $version"
-        
-          for branch in $(git branch -r | grep "origin/hotfix/" | sed 's/origin\///'); do
-            git push origin --delete "$branch"
-          done
-        
-          release_branch="${major_actual}.x"
-          if git ls-remote --exit-code --heads origin $release_branch; then
-              echo "Branch $release_branch já existe"
-          else
-              git checkout -b $release_branch
-              git push origin $release_branch
-          fi
-        ;;
-
-        release-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's#^(release/)?([0-9]+)\.x$#\2#')
-          latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
-          new_tag="$series_number.$minor.$patch"
-          echo "Criando patch tag na release: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
-
-        hotfix-patch)
-          branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series=$(echo "$branch_name" | sed -E 's/hotfix\/([0-9]+)\.x/\1/')
-          latest_tag=$(git tag --list "$series.*" --sort=-v:refname | head -n 1)
-          if [[ -z "$latest_tag" ]]; then
-            patch=0
-            new_tag="$series.$patch"
-          else
-            patch=$(echo $latest_tag | cut -d'.' -f3)
-            patch=$((patch+1))
-            major=$(echo $latest_tag | cut -d'.' -f1)
-            minor=$(echo $latest_tag | cut -d'.' -f2)
-            new_tag="$major.$minor.$patch"
-          fi
-          echo "Criando patch tag na hotfix: $new_tag"
-          git tag $new_tag
-          git push origin $new_tag
-          ;;
-
-        *)
-          echo "Modo inválido: $MODE"
-          exit 1
-          ;;
-        esac
+        FINAL_TAG="${MAJOR}.${MINOR}.0"
+        echo "Criando tag final: $FINAL_TAG"
+        git tag $FINAL_TAG $LAST_DEV
+        git push origin $FINAL_TAG

@@ -1,24 +1,20 @@
-name: Git Flow Automation
+name: Versionamento
+
 on:
   push:
-    branches: [main, master, 'hotfix/*', '*.*']
+    branches: [main, master, '*[0-9].x']
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Choose Action mode'
+        description: 'Modo de execução'
         required: true
-        type: choice
-        options: [finalize-package, finalize-release]
-        default: finalize-package
+        default: 'release'
 
 jobs:
-  gitflow:
+  versioning:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - name: Run Gitflow Versioning
-        uses: bhcosta90/gitflow-versioning-action@main
+      - uses: actions/checkout@v3
+      - uses: bhcosta90/gitflow-versioning-action@main
         with:
-          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || (endsWith(github.ref, '.x') && !startsWith(github.ref, 'refs/heads/hotfix')) && 'release-patch' }}
-          changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
+          mode: ${{ github.event.inputs.mode || 'auto' }}
