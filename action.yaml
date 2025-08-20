@@ -25,6 +25,14 @@ runs:
 
         if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
           LAST_TAG=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
+        
+          if [[ -z "$LAST_TAG" ]]; then
+            echo "No stable tags found. Creating 0.0.0..."
+            git tag 0.0.0
+            git push origin 0.0.0
+            exit 0
+          fi
+        
           echo "Última tag estável: $LAST_TAG"
 
           MAJOR=$(echo $LAST_TAG | cut -d. -f1)
