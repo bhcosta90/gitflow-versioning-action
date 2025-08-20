@@ -17,46 +17,46 @@ runs:
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
 
-    - name: Detect white and last tag
+    - name: Detectar última tag e gerar próxima versão
       shell: bash
       run: |
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
         echo "Branch atual: $BRANCH"
 
         if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+          # Buscar última tag estável (ignorar dev-*)
           LAST_STABLE=$(git tag --list '[0-9]*' --sort=-v:refname | grep -v '^dev-' | head -n 1)
-        
+
           if [[ -z "$LAST_STABLE" ]]; then
-            LAST_STABLE="dev-0.0.0" 
+            LAST_STABLE="0.0.0"
           fi
-        
+
           BASE_VERSION="$LAST_STABLE"
 
-          # Buscar última tag dev para essa versão estável
-          LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | tail -n 1)
-      
+          # Buscar última tag dev para essa versão
+          LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | head -n 1)
+
           if [[ -n "$LAST_DEV" ]]; then
             SEQ=$(echo "$LAST_DEV" | sed -E 's/dev-[0-9]+\.[0-9]+\.[0-9]+-([0-9]+)-rc/\1/')
             NEXT_SEQ=$((SEQ + 1))
           else
             NEXT_SEQ=1
           fi
-      
+
           NEW_TAG="dev-${BASE_VERSION}-${NEXT_SEQ}-rc"
           echo "Nova tag gerada: $NEW_TAG"
-      
-          # Criar e subir a nova tag
+
           git tag "$NEW_TAG"
           git push origin "$NEW_TAG"
 
         elif [[ "$BRANCH" =~ ^[0-9]+\.x$ ]]; then
           MAJOR=$(echo $BRANCH | cut -d. -f1)
-          LAST_TAG=$(git tag --list "${MAJOR}.*" --sort=-v:refname | head -n 1)
+          LAST_TAG=$(git tag --list "${MAJOR}.*" --sort=-v:refname | grep -v '^dev-' | head -n 1)
           echo "Última tag da $BRANCH: $LAST_TAG"
 
           PATCH=$(echo $LAST_TAG | cut -d. -f3)
           NEXT_PATCH=$((PATCH + 1))
-          NEW_TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          NEW_TAG="${MAJOR}.0.${NEXT_PATCH}"
           echo "Criando nova tag de patch: $NEW_TAG"
 
           git tag $NEW_TAG
@@ -69,19 +69,20 @@ runs:
       run: |
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
         MAJOR=$(echo $BRANCH | cut -d. -f1)
-        MINOR=$(git tag --list "dev-${MAJOR}.*" | tail -n 1 | cut -d. -f2)
+
+        # Buscar última tag dev para esse major
+        LAST_DEV=$(git tag --list "dev-${MAJOR}.*-rc" --sort=-v:refname | head -n 1)
+        MINOR=$(echo "$LAST_DEV" | sed -E 's/dev-([0-9]+)\.([0-9]+)\.[0-9]+-[0-9]+-rc/\2/')
 
         echo "Limpando tags dev-${MAJOR}.${MINOR}.* exceto a última"
-        LAST_DEV=$(git tag --list "dev-${MAJOR}.${MINOR}.*" --sort=-v:refname | tail -n 1)
-
-        for TAG in $(git tag --list "dev-${MAJOR}.${MINOR}.*"); do
+        for TAG in $(git tag --list "dev-${MAJOR}.${MINOR}.*-rc"); do
           if [[ "$TAG" != "$LAST_DEV" ]]; then
-            git tag -d $TAG
-            git push origin :refs/tags/$TAG
+            git tag -d "$TAG"
+            git push origin :refs/tags/"$TAG"
           fi
         done
 
         FINAL_TAG="${MAJOR}.${MINOR}.0"
         echo "Criando tag final: $FINAL_TAG"
-        git tag $FINAL_TAG $LAST_DEV
-        git push origin $FINAL_TAG
+        git tag "$FINAL_TAG" "$LAST_DEV"
+        git push origin "$FINAL_TAG"
