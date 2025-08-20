@@ -1,3 +1,11 @@
+## 1.5.0 - 2025-08-20
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- docs: update changelog for version 1.4.0 (github-actions@github.com)
+
 ## 1.4.0 - 2025-08-20
 - feat: change version (bhcosta90@gmail.com)
 - feat: change version (bhcosta90@gmail.com)
