@@ -1,3 +1,12 @@
+## 1.7.0 - 2025-08-20
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+- feat: change version (bhcosta90@gmail.com)
+
 ## 1.6.0 - 2025-08-20
 - feat: change version (bhcosta90@gmail.com)
 - feat: change version (bhcosta90@gmail.com)
