@@ -129,7 +129,9 @@ runs:
 
         if [[ -n "$PREVIOUS_TAG" ]]; then
           # Gera o conteúdo do changelog ANTES do commit
-          CHANGELOG_CONTENT=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%ae)" --no-merges | sed -E 's/.*\+([^@]+)@.*/- \1/')
+          CHANGELOG_CONTENT=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%ae)" --no-merges \
+            | grep -v "docs: update changelog" \
+            | sed -E 's/.*\+([^@]+)@.*/- \1/')
         
           if [[ -z "$CHANGELOG_CONTENT" ]]; then
             CHANGELOG_CONTENT="- No changes detected"
