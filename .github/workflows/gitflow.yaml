@@ -1,21 +1,25 @@
-name: Action
+name: Versioning - Auto
 
 on:
   push:
-    branches: [main, master, '*[0-9].x']
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Execution mode'
-        required: true
-        type: choice
-        options: [package]
+    branches:
+      - main
+      - master
+      - "[0-9]+.x"
+
+permissions:
+  contents: write
 
 jobs:
-  versioning:
+  version-auto:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: bhcosta90/gitflow-versioning-action@main
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          mode: ${{ github.event.inputs.mode || 'auto' }}
+          fetch-depth: 0
+
+      - name: Run Versioning Action (auto)
+        uses: ./.
+        with:
+          mode: auto
