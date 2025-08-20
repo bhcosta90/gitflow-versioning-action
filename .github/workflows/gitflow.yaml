@@ -1,4 +1,4 @@
-name: Versioning - Auto
+name: Versioning - All-in-One
 
 on:
   push:
@@ -6,12 +6,19 @@ on:
       - main
       - master
       - "[0-9]+.x"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Confirm finalize release"
+        required: true
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
   version-auto:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,6 +27,20 @@ jobs:
           fetch-depth: 0
 
       - name: Run Versioning Action (auto)
-        uses: ./.
+        uses: bhcosta90/gitflow-versioning-action@main
         with:
           mode: auto
+
+  finalize:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Versioning Action (package)
+        uses: bhcosta90/gitflow-versioning-action@main
+        with:
+          mode: package

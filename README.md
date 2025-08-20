@@ -45,12 +45,12 @@ Notes:
 
 ## Usage Examples
 
-### 1) Auto workflow for main/master and MAJOR.x (single workflow)
+### Single workflow handling Auto and Finalize
 
-Use one workflow to handle both development tags from main/master and patch releases from MAJOR.x branches.
+Use one workflow to handle both development/patch tagging (on push) and manual finalize (workflow_dispatch).
 
 ```yaml
-name: Versioning - Auto
+name: Versioning - All-in-One
 
 on:
   push:
@@ -58,33 +58,6 @@ on:
       - main
       - master
       - "[0-9]+.x"  # e.g., 1.x, 2.x
-
-permissions:
-  contents: write
-
-jobs:
-  version-auto:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Versioning Action (auto)
-        uses: bhcosta90/gitflow-versioning-action@1.0.0
-        with:
-          mode: auto
-```
-
-### 2) Finalize a package (promote dev to stable)
-
-Trigger manually to finalize the current dev cycle and create a stable tag.
-
-```yaml
-name: Versioning - Finalize
-
-on:
   workflow_dispatch:
     inputs:
       confirm:
@@ -96,7 +69,22 @@ permissions:
   contents: write
 
 jobs:
+  version-auto:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Versioning Action (auto)
+        uses: bhcosta90/gitflow-versioning-action@1.0.0
+        with:
+          mode: auto
+
   finalize:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -105,7 +93,6 @@ jobs:
           fetch-depth: 0
 
       - name: Run Versioning Action (package)
-        if: ${{ github.event.inputs.confirm == 'true' }}
         uses: bhcosta90/gitflow-versioning-action@1.0.0
         with:
           mode: package
