@@ -24,30 +24,31 @@ runs:
         echo "Branch atual: $BRANCH"
 
         if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
-          LAST_TAG=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
+          LAST_STABLE=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
         
-          echo "Checking if Branch 0.x exists..."
-          BRANCH_EXISTS=$(git ls-remote --heads origin 1.x)
-        
-          if [[ -z "$LAST_TAG" ]]; then
-            echo "No stable tags found. Creating dev-0.0.0-0-rc..."
-            git tag dev-0.0.0-0-rc
-            git push origin dev-0.0.0-0-rc
+          if [[ -z "$LAST_STABLE" ]]; then
+            echo "Nenhuma tag estável encontrada. Abortando."
             exit 0
           fi
         
-          echo "Última tag estável: $LAST_TAG"
+          BASE_VERSION="$LAST_STABLE"
 
-          MAJOR=$(echo $LAST_TAG | cut -d. -f1)
-          MINOR=$(echo $LAST_TAG | cut -d. -f2)
-          PATCH=$(echo $LAST_TAG | cut -d. -f3)
-
-          NEXT_MINOR=$((MINOR + 1))
-          DEV_TAG="dev-${MAJOR}.${NEXT_MINOR}.0-$(date +%s)-rc"
-          echo "Criando tag de desenvolvimento: $DEV_TAG"
-
-          git tag $DEV_TAG
-          git push origin $DEV_TAG
+          # Buscar última tag dev para essa versão estável
+          LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | tail -n 1)
+      
+          if [[ -n "$LAST_DEV" ]]; then
+            SEQ=$(echo "$LAST_DEV" | sed -E 's/dev-[0-9]+\.[0-9]+\.[0-9]+-([0-9]+)-rc/\1/')
+            NEXT_SEQ=$((SEQ + 1))
+          else
+            NEXT_SEQ=1
+          fi
+      
+          NEW_TAG="dev-${BASE_VERSION}-${NEXT_SEQ}-rc"
+          echo "Nova tag gerada: $NEW_TAG"
+      
+          # Criar e subir a nova tag
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
 
         elif [[ "$BRANCH" =~ ^[0-9]+\.x$ ]]; then
           MAJOR=$(echo $BRANCH | cut -d. -f1)
