@@ -135,8 +135,8 @@ runs:
           git tag $new_tag
           git push origin $new_tag
 
-          # Criar branch release/major.x
-          release_branch="release/${branch_major}.x"
+          # Criar branch {major}.x
+          release_branch="${branch_major}.x"
           git checkout -b $release_branch
           git push origin $release_branch
 
@@ -170,7 +170,7 @@ runs:
 
         release-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)\.x/\1/')
+          series_number=$(echo "$branch_name" | sed -E 's#^(release/)?([0-9]+)\.x$#\2#')
           latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
           new_tag="$series_number.$minor.$patch"

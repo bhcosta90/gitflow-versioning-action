@@ -17,7 +17,7 @@ This Action creates tags for development cycles (dev), release series, and packa
 - Automatically generates tags based on the existing tag history.
 - Maintains semantic versioning (MAJOR.MINOR.PATCH) for releases.
 - Creates pre-release development tags in the format dev-MAJOR.MINOR.PATCH.
-- Creates/ensures auxiliary branches develop/{major}x and release/{major}x when applicable.
+- Creates/ensures auxiliary branches develop/{major}x and {major}.x (release branch) when applicable.
 - Updates the CHANGELOG.md file when finalizing a package (optional, via input).
 - Removes dev-* tags when a release is finalized.
 
@@ -37,7 +37,7 @@ This Action creates tags for development cycles (dev), release series, and packa
 ## Inputs
 - mode (required): defines the execution mode. Supported values:
   - dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, develop-patch
-- branch (optional): base name used in dev-branch and release-branch (e.g., "feature/login" or "release/1x").
+- branch (optional): base name used in dev-branch and release-branch (e.g., "feature/login" or "1x").
 - changelog_entry (optional): text to be added to CHANGELOG.md when using finalize-package.
 
 There are no outputs defined by this Action.
@@ -61,7 +61,7 @@ Below is a summary of each mode's behavior.
 3) release-branch
 - Similar to dev-branch, but typically used for release branches.
 - Format: {branch}.{patch}
-- Example: branch=release/1x → release/1x.0, release/1x.1, ...
+- Example: branch=1x → 1x.0, 1x.1, ...
 
 4) finalize-package
 - Defines the next final release tag:
@@ -77,13 +77,13 @@ Below is a summary of each mode's behavior.
 - Creates the first tag of a new MAJOR series:
   - If no previous release exists: creates 1.0.0
   - Otherwise: new_major = last MAJOR + 1 → new_major.0.0
-- Creates the release branch release/{branch_major}x, where branch_major is the MAJOR of the previous series.
+- Creates the release branch {branch_major}.x, where branch_major is the MAJOR of the previous series.
 - Ensures the develop/{new_major}x branch for the new series.
 - Removes all dev-* tags and deletes old remote develop/* branches, except the new develop/{new_major}x.
 
 6) release-patch
-- To be used on release/{major}x branches.
-- Reads MAJOR from the branch name (e.g., release/1x → 1).
+- To be used on {major}.x branches.
+- Reads MAJOR from the branch name (e.g., 1x → 1).
 - Finds the latest tag 1.*.* and increments PATCH.
 - Creates and pushes the new tag 1.MINOR.PATCH.
 
@@ -101,7 +101,7 @@ Quick start: minimal workflow integrating this Action (mirrors .github/workflows
 name: Git Flow Automation
 on:
   push:
-    branches: [main, master, 'hotfix/*', 'release/*']
+    branches: [main, master, 'hotfix/*', '*.*']
   workflow_dispatch:
     inputs:
       mode:
@@ -120,7 +120,7 @@ jobs:
       - name: Run Gitflow Versioning
         uses: bhcosta90/gitflow-versioning-action@v1
         with:
-          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || (contains(github.ref, '.x') && !startsWith(github.ref, 'refs/heads/hotfix')) && 'release-patch' }}
           changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
 ```
 
@@ -133,7 +133,7 @@ on:
     branches:
       - main
       - 'develop/*'
-      - 'release/*'
+      - '*.*'
   workflow_dispatch:
     inputs:
       mode:
@@ -170,7 +170,7 @@ jobs:
           mode: develop-patch
 
   release-patch:
-    if: contains(github.ref, 'refs/heads/release/')
+    if: contains(github.ref, '.x') && !contains(github.ref, 'refs/heads/hotfix/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -215,7 +215,7 @@ jobs:
       - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: release-branch
-          branch: release/1x
+          branch: 1x
 
 - Finalize a package with changelog update (finalize-package):
 
@@ -236,7 +236,7 @@ jobs:
 - Releases: tags in the format X.Y.Z (digits and dots only).
 - Dev tags: dev-MAJOR.MINOR.PATCH.
 - Development branches: develop/{major}x (e.g., develop/1x, develop/2x).
-- Release branches: release/{major}x (e.g., release/1x, release/2x).
+- Release branches: {major}.x (e.g., 1x, 2x).
 
 ## Tips and troubleshooting
 - Insufficient permissions:
@@ -248,7 +248,7 @@ jobs:
 - "tag already exists":
   - Indicates that the tag was created by another job/run. Re-running may generate the next patch automatically depending on the mode.
 - Current branch does not match the mode:
-  - release-patch should run on release/{major}x, develop-patch on develop/{major}x. Adjust workflow conditions accordingly.
+  - release-patch should run on {major}.x, develop-patch on develop/{major}x. Adjust workflow conditions accordingly.
 
 ## Development
 - The Makefile includes helper targets:

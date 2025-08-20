@@ -157,7 +157,7 @@ runs:
             git push origin --delete "$branch"
           done
         
-          release_branch="release/${major_actual}.x"
+          release_branch="${major_actual}.x"
           if git ls-remote --exit-code --heads origin $release_branch; then
               echo "Branch $release_branch já existe"
           else
@@ -168,7 +168,7 @@ runs:
 
         release-patch)
           branch_name=$(git rev-parse --abbrev-ref HEAD)
-          series_number=$(echo "$branch_name" | sed -E 's/release\/([0-9]+)\.x/\1/')
+          series_number=$(echo "$branch_name" | sed -E 's#^(release/)?([0-9]+)\.x$#\2#')
           latest_tag=$(git tag --list "$series_number.*.*" --sort=-v:refname | head -n 1)
           if [[ -z "$latest_tag" ]]; then minor=0; patch=0; else minor=$(echo $latest_tag | cut -d'.' -f2); patch=$(echo $latest_tag | cut -d'.' -f3); patch=$((patch+1)); fi
           new_tag="$series_number.$minor.$patch"

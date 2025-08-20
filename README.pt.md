@@ -17,7 +17,7 @@ Esta Action cria tags para ciclos de desenvolvimento (dev), séries de release e
 - Gera automaticamente tags com base no histórico de tags existente.
 - Mantém o padrão de versionamento semântico (MAJOR.MINOR.PATCH) para releases.
 - Cria tags de desenvolvimento pré‑release no formato dev-MAJOR.MINOR.PATCH.
-- Cria/garante branches auxiliares develop/{major}x e release/{major}x quando aplicável.
+- Cria/garante branches auxiliares develop/{major}x e {major}.x (branch de release) quando aplicável.
 - Atualiza o arquivo CHANGELOG.md ao finalizar um pacote (opcional, via input).
 - Remove tags dev-* quando uma release é finalizada.
 
@@ -37,7 +37,7 @@ Esta Action cria tags para ciclos de desenvolvimento (dev), séries de release e
 ## Entradas (inputs)
 - mode (obrigatório): define o modo de execução. Valores suportados: 
   - dev, dev-branch, release-branch, finalize-package, finalize-release, release-patch, develop-patch
-- branch (opcional): nome base usado em dev-branch e release-branch (por exemplo: "feature/login" ou "release/1x").
+- branch (opcional): nome base usado em dev-branch e release-branch (por exemplo: "feature/login" ou "1x").
 - changelog_entry (opcional): texto a ser adicionado no CHANGELOG.md ao usar finalize-package.
 
 Não há outputs definidos por esta Action.
@@ -61,7 +61,7 @@ A seguir, um resumo do comportamento de cada modo.
 3) release-branch
 - Similar ao dev-branch, mas tipicamente usado para branches de release.
 - Formato: {branch}.{patch}
-- Exemplo: branch=release/1x → release/1x.0, release/1x.1, ...
+- Exemplo: branch=1x → 1x.0, 1x.1, ...
 
 4) finalize-package
 - Define a próxima tag de release final:
@@ -77,13 +77,13 @@ A seguir, um resumo do comportamento de cada modo.
 - Cria a primeira tag de uma nova série de MAJOR:
   - Se não existir release anterior: cria 1.0.0
   - Caso exista: new_major = último MAJOR + 1 → new_major.0.0
-- Cria a branch de release release/{branch_major}x, onde branch_major é o MAJOR da série anterior.
+- Cria a branch de release {branch_major}.x, onde branch_major é o MAJOR da série anterior.
 - Garante a branch develop/{new_major}x para a nova série.
 - Remove todas as tags dev-* e apaga branches remotas antigas develop/*, exceto a nova develop/{new_major}x.
 
 6) release-patch
-- Para ser usado em branches release/{major}x.
-- Lê o MAJOR a partir do nome da branch (ex.: release/1x → 1).
+- Para ser usado em branches {major}.x.
+- Lê o MAJOR a partir do nome da branch (ex.: 1x → 1).
 - Encontra a última tag 1.*.* e incrementa o PATCH.
 - Cria e empurra a nova tag 1.MINOR.PATCH.
 
@@ -101,7 +101,7 @@ Início rápido: workflow mínimo integrando esta Action (espelha .github/workfl
 name: Git Flow Automation
 on:
   push:
-    branches: [main, master, 'hotfix/*', 'release/*']
+    branches: [main, master, 'hotfix/*', '*.*']
   workflow_dispatch:
     inputs:
       mode:
@@ -120,7 +120,7 @@ jobs:
       - name: Run Gitflow Versioning
         uses: bhcosta90/gitflow-versioning-action@v1
         with:
-          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || startsWith(github.ref, 'refs/heads/release') && 'release-patch' }}
+          mode: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || github.ref == 'refs/heads/main' && 'dev' || startsWith(github.ref, 'refs/heads/hotfix') && 'hotfix-patch' || (contains(github.ref, '.x') && !startsWith(github.ref, 'refs/heads/hotfix')) && 'release-patch' }}
           changelog_entry: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.changelog_entry || '' }}
 ```
 
@@ -133,7 +133,7 @@ on:
     branches:
       - main
       - 'develop/*'
-      - 'release/*'
+      - '*.*'
   workflow_dispatch:
     inputs:
       mode:
@@ -170,7 +170,7 @@ jobs:
           mode: develop-patch
 
   release-patch:
-    if: contains(github.ref, 'refs/heads/release/')
+    if: contains(github.ref, '.x') && !contains(github.ref, 'refs/heads/hotfix/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -215,7 +215,7 @@ jobs:
       - uses: bhcosta90/gitflow-versioning-action@v1
         with:
           mode: release-branch
-          branch: release/1x
+          branch: 1x
 
 - Finalizar pacote com atualização de changelog (finalize-package):
 
@@ -236,7 +236,7 @@ jobs:
 - Releases: tags no formato X.Y.Z (apenas dígitos e pontos).
 - Dev tags: dev-MAJOR.MINOR.PATCH.
 - Branches de desenvolvimento: develop/{major}x (ex.: develop/1x, develop/2x).
-- Branches de release: release/{major}x (ex.: release/1x, release/2x).
+- Branches de release: {major}.x (ex.: 1x, 2x).
 
 ## Dicas e resolução de problemas
 - Permissões insuficientes:
