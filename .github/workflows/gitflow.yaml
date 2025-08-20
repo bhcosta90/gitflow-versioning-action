@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Modo de execução'
+        description: 'Execution mode'
         required: true
         type: choice
         options: [package]
