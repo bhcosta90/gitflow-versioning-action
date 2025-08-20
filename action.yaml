@@ -20,7 +20,7 @@ runs:
     - name: Detect white and last tag
       shell: bash
       run: |
-        git fetch --prune --tags
+        git fetch
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
         echo "Branch atual: $BRANCH"
 
@@ -68,7 +68,7 @@ runs:
       if: ${{ inputs.mode == 'package' }}
       shell: bash
       run: |
-        git fetch --prune --tags
+        git fetch
         LAST_STABLE=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
         
         if [[ -z "$LAST_STABLE" ]]; then
@@ -79,13 +79,16 @@ runs:
 
         # Buscar última tag dev para essa versão estável
         LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | head -n 1)
-        echo "tag dev: $LAST_DEV"
+        VERSION=$(echo "$LAST_DEV" | cut -d'-' -f2)  # extrai "0.0.0"
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        echo "new version: $NEW_VERSION"
 
     - name: Finalizar pacote (modo package 2)
       if: ${{ inputs.mode == 'package2' }}
       shell: bash
       run: |
-        git fetch --prune --tags
+        git fetch
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
         MAJOR=$(echo $BRANCH | cut -d. -f1)
         MINOR=$(git tag --list "dev-${MAJOR}.*" | tail -n 1 | cut -d. -f2)
