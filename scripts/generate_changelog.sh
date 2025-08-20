@@ -2,13 +2,14 @@
 
 generate_changelog() {
   local new_version="$1"
-  local previous_tag
+  local ref="${2:-HEAD}"  # Usa HEAD se não for passado
 
+  local previous_tag
   previous_tag=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
 
   if [[ -n "$previous_tag" ]]; then
     local changelog_content
-    changelog_content=$(git log "${previous_tag}"..HEAD --pretty=format:"- %s (%ae)" --no-merges \
+    changelog_content=$(git log "${previous_tag}".."${ref}" --pretty=format:"- %s (%ae)" --no-merges \
       | grep -v "docs: update changelog for version" \
       | sed -E 's/.*\+([^@]+)@.*/- \1/')
 
@@ -28,8 +29,8 @@ generate_changelog() {
 
     git add CHANGELOG.md
     git commit -m "docs: update changelog for version ${new_version}"
-    git push origin HEAD
+    git push origin "$ref"
   fi
 }
 
-generate_changelog "$1"
+generate_changelog "$1" "$2"
