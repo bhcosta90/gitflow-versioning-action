@@ -29,6 +29,7 @@ runs:
         
           if [[ -z "$LAST_STABLE" ]]; then
             LAST_STABLE="0.0.0" 
+            MAJOR=0
           else
             MAJOR=$(echo "$LAST_STABLE" | cut -d. -f1)
             MINOR=$(echo "$LAST_STABLE" | cut -d. -f2)
@@ -38,6 +39,15 @@ runs:
           fi
         
           BASE_VERSION="$LAST_STABLE"
+          BRANCH_EXISTS=$(git ls-remote --heads origin "${MAJOR}.x")
+        
+          if [[ -z "$BRANCH_EXISTS" ]]; then
+            echo "Branch ${MAJOR}.x does not exist. Creating it from $BRANCH..."
+            git checkout -b "${MAJOR}.x"
+            git push origin "${MAJOR}.x"
+          else
+            echo "Branch ${MAJOR}.x already exists."
+          fi
 
           # Find latest dev tag for this stable version
           LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | head -n 1)
@@ -78,6 +88,7 @@ runs:
         
         if [[ -z "$LAST_STABLE" ]]; then
           LAST_STABLE="0.0.0" 
+          MAJOR=0
         else
           MAJOR=$(echo "$LAST_STABLE" | cut -d. -f1)
           MINOR=$(echo "$LAST_STABLE" | cut -d. -f2)
@@ -87,6 +98,15 @@ runs:
         fi
 
         BASE_VERSION="$LAST_STABLE"
+        BRANCH_EXISTS=$(git ls-remote --heads origin "${MAJOR}.x")
+      
+        if [[ -z "$BRANCH_EXISTS" ]]; then
+          echo "Branch ${MAJOR}.x does not exist. Creating it from $BRANCH..."
+          git checkout -b "${MAJOR}.x"
+          git push origin "${MAJOR}.x"
+        else
+          echo "Branch ${MAJOR}.x already exists."
+        fi
 
         # Find latest dev tag for this stable version
         LAST_DEV=$(git tag --list "dev-${BASE_VERSION}-*-rc" --sort=-v:refname | head -n 1)
