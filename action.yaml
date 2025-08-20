@@ -24,7 +24,7 @@ runs:
         echo "Branch atual: $BRANCH"
 
         if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
-          LAST_STABLE=$(git tag --list '[0-9]*' --sort=-v:refname | grep -v '^dev-' | head -n 1)
+          LAST_STABLE=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
         
           if [[ -z "$LAST_STABLE" ]]; then
             LAST_STABLE="dev-0.0.0" 
