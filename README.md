@@ -78,7 +78,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Versioning Action (auto)
-        uses: bhcosta90/gitflow-versioning-action@v1
+        uses: bhcosta90/gitflow-versioning-action@1.0.0
         with:
           mode: auto
 
@@ -92,7 +92,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Versioning Action (package)
-        uses: bhcosta90/gitflow-versioning-action@v1
+        uses: bhcosta90/gitflow-versioning-action@1.0.0
         with:
           mode: package
 ```
