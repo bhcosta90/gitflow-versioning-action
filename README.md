@@ -59,11 +59,6 @@ on:
       - master
       - "[0-9]+.x"  # e.g., 1.x, 2.x
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Confirm finalize release"
-        required: true
-        type: boolean
 
 permissions:
   contents: write
@@ -84,7 +79,7 @@ jobs:
           mode: auto
 
   finalize:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
