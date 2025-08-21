@@ -2,7 +2,7 @@
 
 generate_changelog() {
   local new_version="$1"
-  local ref="${2:-HEAD}"  # Usa HEAD se não for passado
+  local ref="${2:-HEAD}"
 
   local previous_tag
   previous_tag=$(git tag --list '[0-9]*' --sort=-v:refname | head -n 1)
@@ -23,13 +23,10 @@ generate_changelog() {
       local old_content
       old_content=$(cat CHANGELOG.md)
       echo -e "${new_changelog}\n${old_content}" > CHANGELOG.md
-    else
-      echo -e "${new_changelog}" > CHANGELOG.md
+      git add CHANGELOG.md
+      git commit -m "docs: update changelog for version ${new_version}"
+      git push origin "$ref"
     fi
-
-    git add CHANGELOG.md
-    git commit -m "docs: update changelog for version ${new_version}"
-    git push origin "$ref"
   fi
 }
 
