@@ -78,4 +78,4 @@ generate_changelog() {
   fi
 }
 
-generate_changelog "$1" "$2"
+generate_changelog "$1" "${2-}"
